@@ -1,6 +1,7 @@
+import { TOGETHER_AI_API_KEY } from '$env/static/private'
+import { TogetherAI } from '@langchain/community/llms/togetherai'
 import type { Actions } from '@sveltejs/kit'
 import type { PageServerLoad } from './$types'
-
 export const load = (async () => {
 	return {}
 }) satisfies PageServerLoad
@@ -18,9 +19,15 @@ export const actions: Actions = {
 
 		console.log('Scraped Results', scrapedResults)
 
+		const summaries = await summariseContent(
+			scrapedResults.map((result) => result.content).join('\n')
+		)
+		console.log('Summaries', summaries)
+
 		return {
 			urls,
-			scrapedResults
+			scrapedResults,
+			summaries
 		}
 	}
 }
@@ -67,4 +74,24 @@ const scrapeUrls = async (urls: string[], fetch: typeof globalThis.fetch) => {
 	}
 
 	return results
+}
+
+const summariseContent = async (content: string) => {
+	const llm = new TogetherAI({
+		apiKey: TOGETHER_AI_API_KEY,
+		model: 'deepseek-ai/DeepSeek-V3'
+		// maxTokens: 256
+	})
+
+	const inputText = `
+    You are provided with scraped website data. 
+    Generate a concise summary that retains only the relevant and actionable insights.
+    Discard any extraneous details like ads, navigation elements, or boilerplate text.
+    
+    Content: ${content}
+    `
+
+	const completion = await llm.invoke(inputText)
+
+	return completion
 }
