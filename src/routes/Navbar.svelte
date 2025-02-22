@@ -2,7 +2,7 @@
     <ul>
       <li><strong>Presenter</strong></li>
     </ul>
-    <ul>
+    <!-- <ul>
       <li><a href="/about">About</a></li>
-    </ul>
+    </ul> -->
 </nav>
