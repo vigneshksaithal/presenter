@@ -1,0 +1,6 @@
+---
+description: Svelte formatting and linting rules
+globs: *.svelte
+---
+- Use functional programming, arrow functions
+- No semicolons and use single quotes in TypeScript
