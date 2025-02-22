@@ -3,6 +3,7 @@ import Navbar from './Navbar.svelte'
 import { onMount } from 'svelte'
 
 let textareaEl: HTMLTextAreaElement
+let prompt = $state('')
 
 const handlePaste = (e: ClipboardEvent) => {
     const pastedText = e.clipboardData?.getData('text') || ''
@@ -13,6 +14,7 @@ const handlePaste = (e: ClipboardEvent) => {
     const start = textareaEl.selectionStart
     const end = textareaEl.selectionEnd
     const text = textareaEl.value
+    e.preventDefault()
     
     const formattedText = pastedText.replace(urlRegex, '@$1')
     const newText = text.slice(0, start) + formattedText + text.slice(end)
@@ -32,10 +34,13 @@ onMount(() => {
 
 <!-- svelte-ignore element_invalid_self_closing_tag -->
 <section class="max-w-xl mx-auto p-4">
-   <form action="POST">
-    <textarea 
+   <form method="POST" action="?/generate">
+    <textarea
+        bind:value={prompt}
+        id="prompt"
+        name="prompt"
         bind:this={textareaEl}
-        on:paste|preventDefault={handlePaste}
+        onpaste={handlePaste}
         placeholder="Enter your prompt... paste URLs to scrape it" 
         rows={6}
         class="w-full p-2 border rounded [&_a]:underline"
