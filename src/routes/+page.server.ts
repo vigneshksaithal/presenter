@@ -25,9 +25,7 @@ export const actions: Actions = {
 		console.log('Summaries', summaries)
 
 		return {
-			urls,
-			scrapedResults,
-			summaries
+			urls
 		}
 	}
 }
@@ -80,14 +78,13 @@ const summariseContent = async (content: string) => {
 	const llm = new TogetherAI({
 		apiKey: TOGETHER_AI_API_KEY,
 		model: 'deepseek-ai/DeepSeek-V3'
-		// maxTokens: 256
 	})
 
 	const inputText = `
     You are provided with scraped website data. 
     Generate a concise summary that retains only the relevant and actionable insights.
     Discard any extraneous details like ads, navigation elements, or boilerplate text.
-    
+
     Content: ${content}
     `
 
