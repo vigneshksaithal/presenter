@@ -13,24 +13,24 @@ export const POST: RequestHandler = async ({ request }) => {
 	$('style').remove()
 
 	// Convert headings to Markdown
-	$('h1, h2, h3, h4, h5, h6').each((_, el) => {
+	$('h1, h2, h3, h4, h5, h6').each((_: undefined, el: cheerio.Element) => {
 		const level = Number.parseInt(el.tagName.substring(1))
 		const text = $(el).text().trim()
 		$(el).replaceWith(`${'#'.repeat(level)} ${text}\n\n`)
 	})
 
 	// Convert links to Markdown format
-	$('a').each((_, el) => {
+	$('a').each((_: undefined, el: cheerio.Element) => {
 		const text = $(el).text().trim()
 		const href = $(el).attr('href')
 		$(el).replaceWith(`[${text}](${href})`)
 	})
 
 	// Convert lists to Markdown
-	$('ul, ol').each((_, el) => {
+	$('ul, ol').each((_: undefined, el: cheerio.Element) => {
 		$(el)
 			.find('li')
-			.each((i, li) => {
+			.each((i: number, li: cheerio.Element) => {
 				const text = $(li).text().trim()
 				$(li).replaceWith(
 					el.tagName.toLowerCase() === 'ul'
@@ -41,7 +41,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	})
 
 	// Convert paragraphs with newlines
-	$('p').each((_, el) => {
+	$('p').each((_: undefined, el: cheerio.Element) => {
 		const text = $(el).text().trim()
 		$(el).replaceWith(`${text}\n\n`)
 	})
