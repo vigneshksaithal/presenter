@@ -1,0 +1,22 @@
+%%{init: {'theme': 'neutral', 'themeVariables': { 'primaryColor': '#E3F2FD'}}}%%
+graph TD
+    A[User] --> B[Upload PDF/URL]
+    B --> C{Document Processing}
+    C -->|PDF| D["Extract Text<br/>(using pdf-parse)"]
+    C -->|URL| E["Scrape Content<br/>(using cheerio)"]
+    
+    D & E --> F["Chunk & Summarize<br/>(GPT-4)"]
+    F --> G["Generate Slides<br/>(GPT-4)"]
+    F --> H["Create Voice Scripts<br/>(ElevenLabs)"]
+    
+    G --> I[Interactive Presentation]
+    H --> I
+    I --> J["Live Q&A Session<br/>(GPT-4 Context)"]
+    
+    classDef sponsor fill:#4CAF50,color:white
+    J --> K[[PostHog]]
+    %% I --> L[[Vercel]]
+    F --> M[[fal.ai]]
+    %% G --> N[[Make]]
+    
+    class K,L,M,N sponsor
