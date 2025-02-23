@@ -14,16 +14,17 @@ let deck: RevealApi | null = null
 let isLoading = $state(true)
 let loadingStatus = $state('Initializing...')
 
-const processMarkdownToSlides = (markdown: string) => {
+const processMarkdownToSlides = async (markdown: string) => {
 	// Split content by horizontal rule (---) to separate slides
 	const slides = markdown.split(/\n---\n/)
 
 	// Process each slide with marked and wrap in section
-	return slides
-		.map((slideContent) => {
-			const processedContent = marked.parse(slideContent.trim())
-			return `<section>${processedContent}</section>`
-		})
+	return (await Promise.all(slides
+		.map(async (slideContent) => {
+			const processedContent = await marked.parse(slideContent.trim())
+			// Add r-stretch class to images
+			return `<section>${processedContent.replace(/<img/g, '<img class="r-stretch"')}</section>`
+		})))
 		.join('\n')
 }
 
@@ -41,7 +42,7 @@ onMount(() => {
 			console.log('Parsing presentation content')
 
 			// Process markdown into separate slides
-			const slidesHtml = processMarkdownToSlides(data.presentation.content)
+			const slidesHtml = await processMarkdownToSlides(data.presentation.content)
 
 			loadingStatus = 'Setting up slides...'
 			console.log('Setting up slide container')
@@ -55,23 +56,10 @@ onMount(() => {
 			const options: Options = {
 				hash: true,
 				slideNumber: 'c/t',
-				plugins: [],
-				disableLayout: false,
 				center: true,
 				width: 1200,
 				height: 800,
-				margin: 0.1,
-				minScale: 0.2,
-				maxScale: 2.0,
 				transition: 'slide',
-				embedded: false,
-				controls: true,
-				progress: true,
-				history: true,
-				keyboard: true,
-				overview: true,
-				mouseWheel: false,
-				display: 'block'
 			}
 
 			console.log('Creating Reveal instance')
