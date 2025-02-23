@@ -35,17 +35,15 @@
 		"@langchain/community": "^0.3.32",
 		"@langchain/core": "^0.3.40",
 		"@langchain/openai": "^0.4.4",
-		"@types/pdf-parse": "^1.1.4",
 		"@types/reveal.js": "^5.0.5",
 		"cheerio": "^1.0.0",
 		"chromadb": "^1.10.4",
 		"chromadb-default-embed": "^2.13.2",
+		"elevenlabs": "^1.51.0",
 		"langchain": "^0.3.19",
 		"marked": "^15.0.7",
 		"openai": "^4.85.3",
-		"pdf-parse": "^1.1.1",
 		"pocketbase": "^0.25.1",
-		"reveal.js": "^5.1.0",
-		"turndown": "^7.2.0"
+		"reveal.js": "^5.1.0"
 	}
 }
