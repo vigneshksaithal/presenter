@@ -146,7 +146,7 @@ export const actions: Actions = {
 				images: savedImages
 			}
 
-			let presentation: string
+			let presentation: {title: string, content: string}
 			try {
 				presentation = await generatePresentation(presentationContent)
 				console.log('Generated presentation content')
@@ -161,7 +161,8 @@ export const actions: Actions = {
 			try {
 				console.log('Saving to PocketBase')
 				await pb.collection('presentations').update(presentationId, {
-					content: presentation,
+					title: presentation.title,
+					content: presentation.content,
 					status: 'completed'
 				})
 				console.log('Saved to PocketBase')
@@ -283,41 +284,44 @@ const generatePresentation = async (data: {content: string, images: Array<{url: 
 		}
 	])
 
-	// Log the response for debugging
 	console.log('LLM Response:', response)
 
-	if (!response) {
-		throw new Error('No response from LLM')
-	}
+	try {
+		// Extract JSON from response
+		const jsonString = response.replace(/```json/g, '').replace(/```/g, '').trim()
+		const result = JSON.parse(jsonString)
+		
+		if (!result.title || !result.content) {
+			throw new Error('Invalid response format from LLM')
+		}
 
-	// Clean the response
-	let cleanResponse = response
-	if (typeof response === 'string') {
-		// Remove any markdown code block syntax
-		cleanResponse = response.replace(/^```[\s\S]*?```$/g, '')
-	} else {
-		cleanResponse = JSON.stringify(response)
+		return result
+	} catch (error) {
+		console.error('Failed to parse presentation response:', error)
+		throw new Error('Failed to generate valid presentation format')
 	}
-
-	return cleanResponse
 }
 
 const PRESENTATION_PROMPT = `
 You are an expert presentation creator. Create a beautiful presentation from the provided content and images.
 Follow these rules strictly:
 
-1. Use reveal.js markdown format
-2. Separate each slide with "---" on its own line (with newlines before and after)
-3. Start with a title slide
-4. Create clear and concise slides
-5. Use proper headings (# for title, ## for sections, ### for subsections)
-6. Include key points and insights
-7. Use bullet points for lists
-8. Keep each slide focused on one topic
-9. Add speaker notes using "Note:" after slide content where helpful
-10. DO NOT wrap your response in backticks or markdown code blocks
-11. Start directly with the presentation content
-12. Maximum 5-7 bullet points per slide
+1. First, generate a relevant title for the presentation based on the content
+2. Use reveal.js markdown format
+3. Your response MUST be in this JSON format:
+{
+  "title": "Generated Title Here",
+  "content": "Presentation content in markdown..."
+}
+4. The title should be concise and descriptive (max 8 words)
+5. Start the content with the title as the first slide
+6. Separate each slide with "---" on its own line (with newlines before and after)
+7. Create clear and concise slides
+8. Use proper headings (# for title, ## for sections, ### for subsections)
+9. Include key points and insights
+10. Use bullet points for lists
+11. Keep each slide focused on one topic
+12. Add speaker notes using "Note:" after slide content where helpful
 13. Use descriptive section titles
 14. Include a summary/conclusion slide at the end
 15. Include the provided images in relevant slides using markdown image syntax: ![description](image_url)
@@ -583,7 +587,7 @@ async function saveImagesToPocketbase(
 			const record = await pb.collection('images').create(formData)
 			
 			savedImages.push({
-				url: pb.files.getUrl(record, record.image),
+				url: pb.files.getURL(record, record.image),
 				description
 			})
 		} catch (error) {
