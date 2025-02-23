@@ -1,4 +1,4 @@
-import { CHROMA_DB_PATH, TOGETHER_AI_API_KEY } from '$env/static/private'
+import { CHROMA_DB_PATH, TOGETHER_AI_API_KEY, FAL_AI_API_KEY } from '$env/static/private'
 import pb from '$lib/pocketbase'
 import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf'
 import { TogetherAIEmbeddings } from '@langchain/community/embeddings/togetherai'
@@ -8,6 +8,11 @@ import type { Document } from '@langchain/core/documents'
 import type { Actions } from '@sveltejs/kit'
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter'
 import type { PageServerLoad } from './$types'
+import { fal } from "@fal-ai/client"
+
+fal.config({
+	credentials: FAL_AI_API_KEY
+})
 
 export const load = (async () => {
 	return {}
@@ -120,9 +125,30 @@ export const actions: Actions = {
 				throw new Error('No content available to generate presentation')
 			}
 
+			// Generate image prompts
+			console.log('Generating image prompts')
+			const imagePrompts = await generateImagePrompts(allContent, createModel())
+			console.log('Generated image prompts:', imagePrompts)
+
+			// Generate images using Fal AI
+			console.log('Generating images')
+			const generatedImages = await generateImages(imagePrompts)
+			console.log('Generated images:', generatedImages)
+
+			// Save images to PocketBase
+			console.log('Saving images to PocketBase')
+			const savedImages = await saveImagesToPocketbase(generatedImages, presentationId)
+			console.log('Saved images:', savedImages)
+
+			// Update the presentation generation to include images
+			const presentationContent = {
+				content: allContent,
+				images: savedImages
+			}
+
 			let presentation: string
 			try {
-				presentation = await generatePresentation(allContent)
+				presentation = await generatePresentation(presentationContent)
 				console.log('Generated presentation content')
 			} catch (error) {
 				console.error('Error generating presentation:', error)
@@ -244,7 +270,7 @@ const splitText = async (text: string) => {
 	return splitter.createDocuments([text])
 }
 
-const generatePresentation = async (content: string) => {
+const generatePresentation = async (data: {content: string, images: Array<{url: string, description: string}>}) => {
 	const model = createModel()
 	const response = await model.invoke([
 		{
@@ -253,7 +279,7 @@ const generatePresentation = async (content: string) => {
 		},
 		{
 			role: 'user',
-			content
+			content: JSON.stringify(data)
 		}
 	])
 
@@ -277,7 +303,7 @@ const generatePresentation = async (content: string) => {
 }
 
 const PRESENTATION_PROMPT = `
-You are an expert presentation creator. Create a beautiful presentation from the provided content.
+You are an expert presentation creator. Create a beautiful presentation from the provided content and images.
 Follow these rules strictly:
 
 1. Use reveal.js markdown format
@@ -294,6 +320,9 @@ Follow these rules strictly:
 12. Maximum 5-7 bullet points per slide
 13. Use descriptive section titles
 14. Include a summary/conclusion slide at the end
+15. Include the provided images in relevant slides using markdown image syntax: ![description](image_url)
+16. Place images where they best support the content
+17. Add the image description as a caption below the image
 
 Example format:
 
@@ -305,20 +334,11 @@ Subtitle or description
 ## Section 1
 * Key point 1
 * Key point 2
-* Key point 3
+
+![Image description](image_url)
+*Caption: Image description*
 
 Note: Additional context for the speaker
-
----
-
-## Section 2
-Content for section 2
-
----
-
-## Summary
-* Main takeaway 1
-* Main takeaway 2
 `
 
 const processPDF = async (pdfFile: File, presentationId: string) => {
@@ -410,4 +430,165 @@ const createPresentationInPocketbase = async (title = '') => {
 	})
 
 	return record.id
+}
+
+const IMAGE_PROMPT_SYSTEM = `
+You are an expert at generating image prompts for presentations. For the given content:
+1. Generate 3-5 image prompts that would enhance the presentation
+2. Each prompt should be detailed and specific for high-quality image generation
+3. Include a short description of what the image represents and how it relates to the content
+4. Return ONLY a valid JSON array with 'prompt' and 'description' fields
+5. DO NOT include any text before or after the JSON array
+6. DO NOT include any markdown, code blocks, or formatting
+7. The response must be EXACTLY in this format, no extra characters:
+[{"prompt":"your prompt here","description":"your description here"}]
+
+Example output (copy this format exactly):
+[
+  {
+    "prompt": "A detailed 3D render of a modern laptop with holographic data visualization floating above it, blue glowing elements, high-tech aesthetic",
+    "description": "Represents digital transformation and modern technology adoption"
+  }
+]`
+
+async function generateImagePrompts(content: string, model: TogetherAI) {
+	const response = await model.invoke([
+		{
+			role: 'system',
+			content: IMAGE_PROMPT_SYSTEM
+		},
+		{
+			role: 'user',
+			content: `Generate image prompts for this content: ${content}`
+		}
+	])
+
+	try {
+		// Clean the response more thoroughly
+		const cleanedResponse = response
+			.replace(/```json\s*/g, '')    // Remove JSON code block markers
+			.replace(/```\s*/g, '')        // Remove any other code block markers
+			.replace(/^\s+|\s+$/g, '')     // Remove leading/trailing whitespace
+			.replace(/[\r\n]+/g, '\n')     // Normalize line endings
+			.replace(/.*?\[/s, '[')        // Remove any text before the first [
+			.replace(/\][^]*$/, ']')       // Remove any text after the last ]
+			
+		console.log('Cleaned response:', cleanedResponse)
+		
+		const parsed = JSON.parse(cleanedResponse)
+
+		// Validate the structure
+		if (!Array.isArray(parsed)) {
+			throw new Error('Response is not an array')
+		}
+
+		// Validate each item in the array
+		const validPrompts = parsed.every(item => 
+			typeof item === 'object' && 
+			typeof item.prompt === 'string' && 
+			typeof item.description === 'string'
+		)
+
+		if (!validPrompts) {
+			throw new Error('Invalid prompt format in response')
+		}
+
+		return parsed as Array<{prompt: string, description: string}>
+	} catch (error) {
+		console.error('Failed to parse image prompts:', error)
+		console.error('Raw response:', response)
+		throw new Error(`Failed to generate valid image prompts: ${error instanceof Error ? error.message : 'Unknown error'}`)
+	}
+}
+
+async function generateImages(imagePrompts: Array<{prompt: string, description: string}>) {
+	const results = []
+	
+	for (const {prompt, description} of imagePrompts) {
+		try {
+			const result = await fal.subscribe('fal-ai/flux', {
+				input: {
+					prompt,
+					image_size: 'landscape_16_9',
+					num_images: 1,
+				}
+			})
+			
+			// Debug log to see the response structure
+			console.log('Fal AI response:', JSON.stringify(result.data, null, 2))
+			
+			// Check if we have an image URL in the response
+			const imageUrl = result.data.images?.[0]?.url || result.data.images?.[0]
+			if (imageUrl && typeof imageUrl === 'string') {
+				results.push({
+					imageUrl,
+					prompt,
+					description
+				})
+			} else {
+				console.error('Invalid image URL in response:', result.data)
+			}
+		} catch (error) {
+			console.error('Failed to generate image for prompt:', prompt, error)
+		}
+	}
+	
+	return results
+}
+
+async function saveImagesToPocketbase(
+	images: Array<{imageUrl: string, prompt: string, description: string}>,
+	presentationId: string
+) {
+	const savedImages = []
+	
+	for (const {imageUrl, prompt, description} of images) {
+		try {
+			// Validate URL before fetching
+			if (!imageUrl || typeof imageUrl !== 'string') {
+				console.error('Invalid image URL:', imageUrl)
+				continue
+			}
+
+			// Try to create URL object to validate
+			try {
+				new URL(imageUrl)
+			} catch (e) {
+				console.error('Invalid URL format:', imageUrl)
+				continue
+			}
+
+			// Fetch the image
+			const response = await fetch(imageUrl)
+			if (!response.ok) {
+				throw new Error(`Failed to fetch image: ${response.statusText}`)
+			}
+
+			const blob = await response.blob()
+			
+			// Create file object
+			const file = new File([blob], `presentation_image_${Date.now()}.png`, {
+				type: 'image/png'
+			})
+			
+			// Create form data
+			const formData = new FormData()
+			formData.append('image', file)
+			formData.append('description', description)
+			formData.append('prompt', prompt)
+			formData.append('presentation', presentationId)
+			
+			// Save to PocketBase
+			const record = await pb.collection('images').create(formData)
+			
+			savedImages.push({
+				url: pb.files.getUrl(record, record.image),
+				description
+			})
+		} catch (error) {
+			console.error('Failed to save image:', error)
+		}
+	}
+	
+	return savedImages
 }

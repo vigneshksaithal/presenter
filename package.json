@@ -30,6 +30,7 @@
 		]
 	},
 	"dependencies": {
+		"@fal-ai/client": "^1.2.3",
 		"@langchain/community": "^0.3.32",
 		"@langchain/core": "^0.3.40",
 		"@langchain/openai": "^0.4.4",
