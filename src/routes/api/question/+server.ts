@@ -6,66 +6,68 @@ import { ChatPromptTemplate } from '@langchain/core/prompts'
 import { error, json } from '@sveltejs/kit'
 import { ChromaClient } from 'chromadb'
 import type { RequestHandler } from './$types'
-const model = new TogetherAI({
-	apiKey: TOGETHER_AI_API_KEY,
-	modelName: 'deepseek-ai/DeepSeek-V3',
-	temperature: 0.7,
-	maxTokens: 4096
-})
-
-const embeddings = new TogetherAIEmbeddings({
-	apiKey: TOGETHER_AI_API_KEY,
-	modelName: 'togethercomputer/m2-bert-80M-8k-retrieval'
-})
-
-const chroma = new ChromaClient({
-	path: CHROMA_DB_PATH
-})
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
-		const { presentationId, question } = await request.json()
+		const { question, presentationId } = await request.json()
 
-		if (!presentationId || !question) {
-			throw error(400, 'Presentation ID and question are required')
+		if (!question) {
+			throw error(400, 'Question is required')
 		}
 
-		// Get collection
-		const collection = await chroma.getCollection({
-			name: `presentation_${presentationId}`
+		if (!presentationId) {
+			throw error(400, 'Presentation ID is required')
+		}
+
+		// Initialize embeddings
+		const embeddings = new TogetherAIEmbeddings({
+			apiKey: TOGETHER_AI_API_KEY
+		})
+
+		// Initialize ChromaDB client
+		const chroma = new ChromaClient({
+			path: CHROMA_DB_PATH
+		})
+
+		// Get collection with embeddings function
+		const collection = await chroma.getOrCreateCollection({
+			name: `presentation_${presentationId}`,
+			embeddingFunction: embeddings
 		})
 
 		// Get embeddings for the question
 		const questionEmbedding = await embeddings.embedQuery(question)
 
-		// Search for relevant chunks
+		// Query the collection
 		const results = await collection.query({
-			queryEmbeddings: [questionEmbedding],
-			nResults: 3
+			queryEmbeddings: questionEmbedding,
+			nResults: 5
 		})
 
-		// Create context from results
-		const context = results.documents[0].join('\n\n')
+		// Initialize the model
+		const model = new TogetherAI({
+			apiKey: TOGETHER_AI_API_KEY,
+			modelName: 'mistralai/Mixtral-8x7B-Instruct-v0.1'
+		})
 
 		// Create prompt template
 		const prompt = ChatPromptTemplate.fromTemplate(`
-      You are a helpful AI assistant answering questions about a presentation.
-      Use the following context to answer the question:
-      
-      Context:
-      {context}
-      
-      Question: {question}
-      
-      Answer the question based on the context provided. If you cannot answer the question from the context, say so.
-    `)
+			Answer the following question using only the context provided. If you cannot answer the question based on the context, say "I cannot answer this question based on the available information."
+			
+			Context: {context}
+			
+			Question: {question}
+			
+			Answer:
+		`)
 
-		// Generate response
+		// Format prompt with context and question
 		const formattedPrompt = await prompt.format({
-			context,
+			context: results.documents[0].join('\n'),
 			question
 		})
 
+		// Get response from model
 		const response = await model.invoke(formattedPrompt)
 		return json({ answer: response })
 	} catch (err) {
