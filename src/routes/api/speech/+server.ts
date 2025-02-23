@@ -2,7 +2,7 @@ import { ELEVENLABS_API_KEY } from '$env/static/private'
 import { error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
-const VOICE_ID = 'pNInz6obpgDQGcFmaJgB' // Rachel voice
+const VOICE_ID = '9BWtsMINqrJLrRacOk9x'
 
 export const POST: RequestHandler = async ({ request }) => {
   try {
