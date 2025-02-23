@@ -5,10 +5,10 @@ import type { Options, Api as RevealApi } from 'reveal.js'
 import type { PageData } from './$types'
 import 'reveal.js/dist/reveal.css'
 import 'reveal.js/dist/theme/black.css'
+import VoiceInput from '$lib/components/VoiceInput.svelte'
 import { marked } from 'marked'
 // import 'reveal.js/dist/theme/fonts/source-sans-pro/source-sans-pro.css'
 import { onMount } from 'svelte'
-
 
 let { data }: { data: PageData } = $props()
 let deck: RevealApi | null = null
@@ -62,12 +62,12 @@ const generateSpeech = async (text: string): Promise<HTMLAudioElement> => {
 	const audioBlob = await response.blob()
 	const audioUrl = URL.createObjectURL(audioBlob)
 	const audio = new Audio(audioUrl)
-	
+
 	// Clean up the URL when the audio is loaded
 	audio.onloadeddata = () => {
 		console.log('Audio loaded, duration:', audio.duration)
 	}
-	
+
 	// Clean up the URL when the audio ends
 	audio.onended = () => {
 		URL.revokeObjectURL(audioUrl)
@@ -100,7 +100,7 @@ const startAutoPresentation = async () => {
 		for (let i = 0; i < slides.length && isPresenting; i++) {
 			deck.slide(i)
 			const slideText = extractTextContent(slides[i].innerHTML)
-			
+
 			if (!slideText.trim()) {
 				console.log('Empty slide, skipping')
 				continue
@@ -135,7 +135,7 @@ const stopAutoPresentation = () => {
 
 const handleQuestionSubmit = async () => {
 	if (!question.trim() || !data.presentation?.id) return
-	
+
 	isProcessingQuestion = true
 	try {
 		const response = await fetch('/api/question', {
@@ -159,23 +159,73 @@ const handleQuestionSubmit = async () => {
 		// Generate speech for the answer using form action
 		const form = new FormData()
 		form.append('text', result.answer)
-		
+
 		const speechResponse = await fetch('?/generateSpeech', {
 			method: 'POST',
 			body: form
 		})
-		
+
 		const speechResult = await speechResponse.json()
 		if (speechResult.success) {
 			const audio = new Audio(speechResult.audio) // Use data URL directly
 			audio.onerror = (e) => console.error('Audio playback error:', e)
 			const playPromise = audio.play()
 			if (playPromise) {
-				playPromise.catch(e => console.error('Audio play error:', e))
+				playPromise.catch((e) => console.error('Audio play error:', e))
 			}
 		}
 	} catch (error) {
 		console.error('Error handling question:', error)
+	} finally {
+		isProcessingQuestion = false
+	}
+}
+
+const handleVoiceInput = async (event: CustomEvent<string>) => {
+	const question = event.detail
+	if (!question.trim() || !data.presentation?.id) return
+
+	isProcessingQuestion = true
+	try {
+		const response = await fetch('/api/question', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				presentationId: data.presentation.id,
+				question
+			})
+		})
+
+		if (!response.ok) {
+			throw new Error('Failed to get answer')
+		}
+
+		const result = await response.json()
+		answer = result.answer
+
+		// Generate speech for the answer
+		const audioResponse = await fetch('/api/speech', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({ text: result.answer })
+		})
+
+		if (!audioResponse.ok) {
+			throw new Error('Failed to generate speech')
+		}
+
+		const audioBlob = await audioResponse.blob()
+		const audioUrl = URL.createObjectURL(audioBlob)
+		const audio = new Audio(audioUrl)
+
+		audio.onended = () => URL.revokeObjectURL(audioUrl)
+		await audio.play()
+	} catch (error) {
+		console.error('Error handling voice input:', error)
 	} finally {
 		isProcessingQuestion = false
 	}
@@ -291,6 +341,15 @@ onMount(() => {
 				{answer}
 			</div>
 		{/if}
+	{/if}
+</div>
+
+<div class="voice-interface">
+	<VoiceInput on:result={handleVoiceInput} />
+	{#if answer}
+		<div class="answer" class:processing={isProcessingQuestion}>
+			{answer}
+		</div>
 	{/if}
 </div>
 
@@ -431,5 +490,28 @@ onMount(() => {
 	padding: 10px;
 	background: #f5f5f5;
 	border-radius: 4px;
+}
+
+.voice-interface {
+	position: fixed;
+	bottom: 20px;
+	left: 20px;
+	z-index: 1000;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 10px;
+}
+
+.answer {
+	background: rgba(255, 255, 255, 0.9);
+	padding: 15px;
+	border-radius: 8px;
+	max-width: 300px;
+	box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.answer.processing {
+	opacity: 0.7;
 }
 </style> 
