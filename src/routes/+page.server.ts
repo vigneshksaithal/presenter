@@ -1,5 +1,10 @@
-import { CHROMA_DB_PATH, TOGETHER_AI_API_KEY, FAL_AI_API_KEY } from '$env/static/private'
+import {
+	CHROMA_DB_PATH,
+	FAL_AI_API_KEY,
+	TOGETHER_AI_API_KEY
+} from '$env/static/private'
 import pb from '$lib/pocketbase'
+import { fal } from '@fal-ai/client'
 import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf'
 import { TogetherAIEmbeddings } from '@langchain/community/embeddings/togetherai'
 import { TogetherAI } from '@langchain/community/llms/togetherai'
@@ -8,7 +13,6 @@ import type { Document } from '@langchain/core/documents'
 import type { Actions } from '@sveltejs/kit'
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter'
 import type { PageServerLoad } from './$types'
-import { fal } from "@fal-ai/client"
 
 fal.config({
 	credentials: FAL_AI_API_KEY
@@ -137,7 +141,10 @@ export const actions: Actions = {
 
 			// Save images to PocketBase
 			console.log('Saving images to PocketBase')
-			const savedImages = await saveImagesToPocketbase(generatedImages, presentationId)
+			const savedImages = await saveImagesToPocketbase(
+				generatedImages,
+				presentationId
+			)
 			console.log('Saved images:', savedImages)
 
 			// Update the presentation generation to include images
@@ -146,7 +153,7 @@ export const actions: Actions = {
 				images: savedImages
 			}
 
-			let presentation: {title: string, content: string}
+			let presentation: { title: string; content: string }
 			try {
 				presentation = await generatePresentation(presentationContent)
 				console.log('Generated presentation content')
@@ -271,7 +278,10 @@ const splitText = async (text: string) => {
 	return splitter.createDocuments([text])
 }
 
-const generatePresentation = async (data: {content: string, images: Array<{url: string, description: string}>}) => {
+const generatePresentation = async (data: {
+	content: string
+	images: Array<{ url: string; description: string }>
+}) => {
 	const model = createModel()
 	const response = await model.invoke([
 		{
@@ -288,9 +298,12 @@ const generatePresentation = async (data: {content: string, images: Array<{url: 
 
 	try {
 		// Extract JSON from response
-		const jsonString = response.replace(/```json/g, '').replace(/```/g, '').trim()
+		const jsonString = response
+			.replace(/```json/g, '')
+			.replace(/```/g, '')
+			.trim()
 		const result = JSON.parse(jsonString)
-		
+
 		if (!result.title || !result.content) {
 			throw new Error('Invalid response format from LLM')
 		}
@@ -470,16 +483,16 @@ async function generateImagePrompts(content: string, model: TogetherAI) {
 	try {
 		// Clean the response more thoroughly
 		const cleanedResponse = response
-			.replace(/```json\s*/g, '')    // Remove JSON code block markers
-			.replace(/```\s*/g, '')        // Remove any other code block markers
-			.replace(/^\s+|\s+$/g, '')     // Remove leading/trailing whitespace
-			.replace(/[\r\n]+/g, '\n')     // Normalize line endings
-			.replace(/.*?\[/s, '[')        // Remove any text before the first [
+			.replace(/```json\s*/g, '') // Remove JSON code block markers
+			.replace(/```\s*/g, '') // Remove any other code block markers
+			.replace(/^\s+|\s+$/g, '') // Remove leading/trailing whitespace
+			.replace(/[\r\n]+/g, '\n') // Normalize line endings
+			.replace(/.*?\[/s, '[') // Remove any text before the first [
 			// biome-ignore lint/correctness/noEmptyCharacterClassInRegex: <explanation>
-			.replace(/\][^]*$/, ']')       // Remove any text after the last ]
-			
+			.replace(/\][^]*$/, ']') // Remove any text after the last ]
+
 		console.log('Cleaned response:', cleanedResponse)
-		
+
 		const parsed = JSON.parse(cleanedResponse)
 
 		// Validate the structure
@@ -488,40 +501,45 @@ async function generateImagePrompts(content: string, model: TogetherAI) {
 		}
 
 		// Validate each item in the array
-		const validPrompts = parsed.every(item => 
-			typeof item === 'object' && 
-			typeof item.prompt === 'string' && 
-			typeof item.description === 'string'
+		const validPrompts = parsed.every(
+			(item) =>
+				typeof item === 'object' &&
+				typeof item.prompt === 'string' &&
+				typeof item.description === 'string'
 		)
 
 		if (!validPrompts) {
 			throw new Error('Invalid prompt format in response')
 		}
 
-		return parsed as Array<{prompt: string, description: string}>
+		return parsed as Array<{ prompt: string; description: string }>
 	} catch (error) {
 		console.error('Failed to parse image prompts:', error)
 		console.error('Raw response:', response)
-		throw new Error(`Failed to generate valid image prompts: ${error instanceof Error ? error.message : 'Unknown error'}`)
+		throw new Error(
+			`Failed to generate valid image prompts: ${error instanceof Error ? error.message : 'Unknown error'}`
+		)
 	}
 }
 
-async function generateImages(imagePrompts: Array<{prompt: string, description: string}>) {
+async function generateImages(
+	imagePrompts: Array<{ prompt: string; description: string }>
+) {
 	const results = []
-	
-	for (const {prompt, description} of imagePrompts) {
+
+	for (const { prompt, description } of imagePrompts) {
 		try {
 			const result = await fal.subscribe('fal-ai/flux', {
 				input: {
 					prompt,
 					image_size: 'landscape_16_9',
-					num_images: 1,
+					num_images: 1
 				}
 			})
-			
+
 			// Debug log to see the response structure
 			console.log('Fal AI response:', JSON.stringify(result.data, null, 2))
-			
+
 			// Check if we have an image URL in the response
 			const imageUrl = result.data.images?.[0]?.url || result.data.images?.[0]
 			if (imageUrl && typeof imageUrl === 'string') {
@@ -537,17 +555,17 @@ async function generateImages(imagePrompts: Array<{prompt: string, description: 
 			console.error('Failed to generate image for prompt:', prompt, error)
 		}
 	}
-	
+
 	return results
 }
 
 async function saveImagesToPocketbase(
-	images: Array<{imageUrl: string, prompt: string, description: string}>,
+	images: Array<{ imageUrl: string; prompt: string; description: string }>,
 	presentationId: string
 ) {
 	const savedImages = []
-	
-	for (const {imageUrl, prompt, description} of images) {
+
+	for (const { imageUrl, prompt, description } of images) {
 		try {
 			// Validate URL before fetching
 			if (!imageUrl || typeof imageUrl !== 'string') {
@@ -570,22 +588,22 @@ async function saveImagesToPocketbase(
 			}
 
 			const blob = await response.blob()
-			
+
 			// Create file object
 			const file = new File([blob], `presentation_image_${Date.now()}.png`, {
 				type: 'image/png'
 			})
-			
+
 			// Create form data
 			const formData = new FormData()
 			formData.append('image', file)
 			formData.append('description', description)
 			formData.append('prompt', prompt)
 			formData.append('presentation', presentationId)
-			
+
 			// Save to PocketBase
 			const record = await pb.collection('images').create(formData)
-			
+
 			savedImages.push({
 				url: pb.files.getURL(record, record.image),
 				description
@@ -594,6 +612,6 @@ async function saveImagesToPocketbase(
 			console.error('Failed to save image:', error)
 		}
 	}
-	
+
 	return savedImages
 }

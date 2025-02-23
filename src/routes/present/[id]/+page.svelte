@@ -19,13 +19,15 @@ const processMarkdownToSlides = async (markdown: string) => {
 	const slides = markdown.split(/\n---\n/)
 
 	// Process each slide with marked and wrap in section
-	return (await Promise.all(slides
-		.map(async (slideContent) => {
-			const processedContent = await marked.parse(slideContent.trim())
-			// Add r-stretch class to images
-			return `<section>${processedContent.replace(/<img/g, '<img class="r-stretch"')}</section>`
-		})))
-		.join('\n')
+	return (
+		await Promise.all(
+			slides.map(async (slideContent) => {
+				const processedContent = await marked.parse(slideContent.trim())
+				// Add r-stretch class to images
+				return `<section>${processedContent.replace(/<img/g, '<img class="r-stretch"')}</section>`
+			})
+		)
+	).join('\n')
 }
 
 onMount(() => {
@@ -42,7 +44,9 @@ onMount(() => {
 			console.log('Parsing presentation content')
 
 			// Process markdown into separate slides
-			const slidesHtml = await processMarkdownToSlides(data.presentation.content)
+			const slidesHtml = await processMarkdownToSlides(
+				data.presentation.content
+			)
 
 			loadingStatus = 'Setting up slides...'
 			console.log('Setting up slide container')
@@ -59,7 +63,7 @@ onMount(() => {
 				center: true,
 				width: 1200,
 				height: 800,
-				transition: 'slide',
+				transition: 'slide'
 			}
 
 			console.log('Creating Reveal instance')
