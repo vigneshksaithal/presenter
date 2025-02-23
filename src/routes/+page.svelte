@@ -144,7 +144,7 @@ onMount(() => {
         <label
             role="button"
             for="files"
-            class="secondary"
+            class="secondary outline"
             aria-disabled={isSubmitting}
         >
             <span>Upload (PDF, images)</span>
