@@ -30,6 +30,7 @@
 		]
 	},
 	"dependencies": {
+		"@11labs/client": "^0.0.7",
 		"@fal-ai/client": "^1.2.3",
 		"@langchain/community": "^0.3.32",
 		"@langchain/core": "^0.3.40",
@@ -39,7 +40,6 @@
 		"cheerio": "^1.0.0",
 		"chromadb": "^1.10.4",
 		"chromadb-default-embed": "^2.13.2",
-		"elevenlabs": "^1.51.0",
 		"langchain": "^0.3.19",
 		"marked": "^15.0.7",
 		"openai": "^4.85.3",
