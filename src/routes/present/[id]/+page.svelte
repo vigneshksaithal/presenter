@@ -1,13 +1,13 @@
 <!-- src/routes/present/[id]/+page.svelte -->
 <script lang="ts">
-import type { PageData } from './$types'
 import Reveal from 'reveal.js'
-import type { Api as RevealApi, Options } from 'reveal.js'
+import type { Options, Api as RevealApi } from 'reveal.js'
+import type { PageData } from './$types'
 import 'reveal.js/dist/reveal.css'
 import 'reveal.js/dist/theme/black.css'
+import { marked } from 'marked'
 // import 'reveal.js/dist/theme/fonts/source-sans-pro/source-sans-pro.css'
 import { onMount } from 'svelte'
-import { marked } from 'marked'
 
 let { data }: { data: PageData } = $props()
 let deck: RevealApi | null = null
@@ -17,12 +17,14 @@ let loadingStatus = $state('Initializing...')
 const processMarkdownToSlides = (markdown: string) => {
 	// Split content by horizontal rule (---) to separate slides
 	const slides = markdown.split(/\n---\n/)
-	
+
 	// Process each slide with marked and wrap in section
-	return slides.map(slideContent => {
-		const processedContent = marked.parse(slideContent.trim())
-		return `<section>${processedContent}</section>`
-	}).join('\n')
+	return slides
+		.map((slideContent) => {
+			const processedContent = marked.parse(slideContent.trim())
+			return `<section>${processedContent}</section>`
+		})
+		.join('\n')
 }
 
 onMount(() => {
@@ -37,10 +39,10 @@ onMount(() => {
 		try {
 			loadingStatus = 'Parsing markdown...'
 			console.log('Parsing presentation content')
-			
+
 			// Process markdown into separate slides
 			const slidesHtml = processMarkdownToSlides(data.presentation.content)
-			
+
 			loadingStatus = 'Setting up slides...'
 			console.log('Setting up slide container')
 			const slideContainer = document.querySelector('.slides')
@@ -73,7 +75,9 @@ onMount(() => {
 			}
 
 			console.log('Creating Reveal instance')
-			const RevealConstructor = Reveal as unknown as new (options: Options) => RevealApi
+			const RevealConstructor = Reveal as unknown as new (
+				options: Options
+			) => RevealApi
 			deck = new RevealConstructor(options)
 
 			if (deck) {

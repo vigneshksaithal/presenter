@@ -1,10 +1,10 @@
 <script lang="ts">
-import type { PageData } from './$types'
 import Reveal from 'reveal.js'
+import type { PageData } from './$types'
 import 'reveal.js/dist/reveal.css'
+import { marked } from 'marked'
 // import 'reveal.js/dist/theme/black.css'
 import { onMount } from 'svelte'
-import { marked } from 'marked'
 
 let { data }: { data: PageData } = $props()
 let deck: Reveal | null = null

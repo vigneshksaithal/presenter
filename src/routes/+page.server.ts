@@ -4,10 +4,10 @@ import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf'
 import { TogetherAIEmbeddings } from '@langchain/community/embeddings/togetherai'
 import { TogetherAI } from '@langchain/community/llms/togetherai'
 import { Chroma } from '@langchain/community/vectorstores/chroma'
+import type { Document } from '@langchain/core/documents'
 import type { Actions } from '@sveltejs/kit'
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter'
 import type { PageServerLoad } from './$types'
-import type { Document } from '@langchain/core/documents'
 
 export const load = (async () => {
 	return {}
@@ -17,27 +17,29 @@ export const actions: Actions = {
 	generate: async ({ request, fetch }) => {
 		console.log('Generate action started')
 		let presentationId: string | undefined
-		
+
 		try {
 			const formData = await request.formData()
 			const prompt = formData.get('prompt') as string
 			const files = formData.getAll('files') as File[]
-			
+
 			if (!prompt && files.length === 0) {
-				throw new Error('Please provide either a prompt with URLs or upload PDF files')
+				throw new Error(
+					'Please provide either a prompt with URLs or upload PDF files'
+				)
 			}
-			
+
 			console.log('Received form data:', {
 				prompt,
 				fileCount: files.length,
-				fileTypes: files.map(f => f.type)
+				fileTypes: files.map((f) => f.type)
 			})
-			
+
 			// Create presentation record
 			console.log('Creating presentation record')
 			presentationId = await createPresentationInPocketbase(prompt)
 			console.log('Created presentation with ID:', presentationId)
-			
+
 			// Process PDFs if any
 			console.log('Processing PDFs')
 			const pdfResults = []
@@ -49,7 +51,9 @@ export const actions: Actions = {
 						pdfResults.push(result)
 					} catch (error) {
 						console.error(`Error processing PDF ${file.name}:`, error)
-						throw new Error(`Failed to process PDF ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`)
+						throw new Error(
+							`Failed to process PDF ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
+						)
 					}
 				}
 			}
@@ -59,19 +63,23 @@ export const actions: Actions = {
 			console.log('Processing URLs')
 			const urls = extractUrls(prompt)
 			console.log('Extracted URLs:', urls)
-			
+
 			let scrapedSummaries = ''
 			if (urls.length > 0) {
 				try {
 					const scrapedResults = await scrapeUrls(urls, fetch)
 					console.log('Scraped results:', scrapedResults)
-					
-					if (scrapedResults.some(r => !r.success)) {
-						const failedUrls = scrapedResults.filter(r => !r.success).map(r => r.url)
+
+					if (scrapedResults.some((r) => !r.success)) {
+						const failedUrls = scrapedResults
+							.filter((r) => !r.success)
+							.map((r) => r.url)
 						console.warn('Some URLs failed to scrape:', failedUrls)
 					}
-					
-					const validResults = scrapedResults.filter(r => r.success && r.content)
+
+					const validResults = scrapedResults.filter(
+						(r) => r.success && r.content
+					)
 					if (validResults.length > 0) {
 						scrapedSummaries = await generateSummary(
 							validResults.map((result) => result.content).join('\n')
@@ -80,7 +88,9 @@ export const actions: Actions = {
 					}
 				} catch (error) {
 					console.error('Error processing URLs:', error)
-					throw new Error(`Failed to process URLs: ${error instanceof Error ? error.message : 'Unknown error'}`)
+					throw new Error(
+						`Failed to process URLs: ${error instanceof Error ? error.message : 'Unknown error'}`
+					)
 				}
 			}
 
@@ -94,16 +104,17 @@ export const actions: Actions = {
 					console.log('Saved to ChromaDB')
 				} catch (error) {
 					console.error('Error saving to ChromaDB:', error)
-					throw new Error(`Failed to save to ChromaDB: ${error instanceof Error ? error.message : 'Unknown error'}`)
+					throw new Error(
+						`Failed to save to ChromaDB: ${error instanceof Error ? error.message : 'Unknown error'}`
+					)
 				}
 			}
 
 			// Generate final presentation
 			console.log('Generating final presentation')
-			const allContent = [
-				...pdfResults,
-				scrapedSummaries
-			].filter(Boolean).join('\n\n')
+			const allContent = [...pdfResults, scrapedSummaries]
+				.filter(Boolean)
+				.join('\n\n')
 
 			if (!allContent) {
 				throw new Error('No content available to generate presentation')
@@ -115,7 +126,9 @@ export const actions: Actions = {
 				console.log('Generated presentation content')
 			} catch (error) {
 				console.error('Error generating presentation:', error)
-				throw new Error(`Failed to generate presentation: ${error instanceof Error ? error.message : 'Unknown error'}`)
+				throw new Error(
+					`Failed to generate presentation: ${error instanceof Error ? error.message : 'Unknown error'}`
+				)
 			}
 
 			// Save presentation content to PocketBase
@@ -128,7 +141,9 @@ export const actions: Actions = {
 				console.log('Saved to PocketBase')
 			} catch (error) {
 				console.error('Error saving to PocketBase:', error)
-				throw new Error(`Failed to save presentation: ${error instanceof Error ? error.message : 'Unknown error'}`)
+				throw new Error(
+					`Failed to save presentation: ${error instanceof Error ? error.message : 'Unknown error'}`
+				)
 			}
 
 			return {
@@ -137,7 +152,7 @@ export const actions: Actions = {
 			}
 		} catch (error) {
 			console.error('Error in generate action:', error)
-			
+
 			// Update status to failed if we have a presentationId
 			if (presentationId) {
 				try {
@@ -148,7 +163,7 @@ export const actions: Actions = {
 					console.error('Failed to update status to failed:', updateError)
 				}
 			}
-			
+
 			return {
 				success: false,
 				error: error instanceof Error ? error.message : 'Unknown error'

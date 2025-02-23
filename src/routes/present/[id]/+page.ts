@@ -1,5 +1,5 @@
-import type { PageLoad } from './$types'
 import pb from '$lib/pocketbase'
+import type { PageLoad } from './$types'
 
 export const load = (async ({ params }) => {
 	try {
@@ -13,4 +13,4 @@ export const load = (async ({ params }) => {
 			error: 'Presentation not found'
 		}
 	}
-}) satisfies PageLoad 
+}) satisfies PageLoad

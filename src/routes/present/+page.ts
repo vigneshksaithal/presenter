@@ -1,5 +1,5 @@
-import type { PageLoad } from './$types'
 import pb from '$lib/pocketbase'
+import type { PageLoad } from './$types'
 
 export const load = (async ({ params }) => {
 	const presentationId = params.id
@@ -11,7 +11,9 @@ export const load = (async ({ params }) => {
 	}
 
 	try {
-		const presentation = await pb.collection('presentations').getOne(presentationId)
+		const presentation = await pb
+			.collection('presentations')
+			.getOne(presentationId)
 		return {
 			presentation
 		}
