@@ -9,10 +9,18 @@ import { marked } from 'marked'
 // import 'reveal.js/dist/theme/fonts/source-sans-pro/source-sans-pro.css'
 import { onMount } from 'svelte'
 
+
 let { data }: { data: PageData } = $props()
 let deck: RevealApi | null = null
 let isLoading = $state(true)
 let loadingStatus = $state('Initializing...')
+let isPresenting = $state(false)
+let currentAudio: HTMLAudioElement | null = null
+let isAskingQuestion = $state(false)
+let question = $state('')
+let answer = $state('')
+let isProcessingQuestion = $state(false)
+let currentSlideAudio: string | null = null
 
 const processMarkdownToSlides = async (markdown: string) => {
 	// Split content by horizontal rule (---) to separate slides
@@ -30,6 +38,149 @@ const processMarkdownToSlides = async (markdown: string) => {
 	).join('\n')
 }
 
+// Function to extract text content from slide HTML
+const extractTextContent = (slideHtml: string) => {
+	const div = document.createElement('div')
+	div.innerHTML = slideHtml
+	return div.textContent || ''
+}
+
+// Function to generate speech for text
+const generateSpeech = async (text: string): Promise<HTMLAudioElement> => {
+	const response = await fetch('/api/speech', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({ text })
+	})
+
+	if (!response.ok) {
+		throw new Error('Failed to generate speech')
+	}
+
+	const audioBlob = await response.blob()
+	const audioUrl = URL.createObjectURL(audioBlob)
+	const audio = new Audio(audioUrl)
+	
+	// Clean up the URL when the audio is loaded
+	audio.onloadeddata = () => {
+		console.log('Audio loaded, duration:', audio.duration)
+	}
+	
+	// Clean up the URL when the audio ends
+	audio.onended = () => {
+		URL.revokeObjectURL(audioUrl)
+	}
+
+	return audio
+}
+
+// Function to play audio and wait for completion
+const playAudio = async (audio: HTMLAudioElement): Promise<void> => {
+	return new Promise((resolve, reject) => {
+		audio.onended = resolve
+		audio.onerror = reject
+		audio.play().catch(reject)
+	})
+}
+
+// Function to handle auto-presentation
+const startAutoPresentation = async () => {
+	if (!deck) {
+		console.error('Deck not initialized')
+		return
+	}
+
+	try {
+		isPresenting = true
+		const slides = document.querySelectorAll('.slides section')
+		console.log('Starting presentation with', slides.length, 'slides')
+
+		for (let i = 0; i < slides.length && isPresenting; i++) {
+			deck.slide(i)
+			const slideText = extractTextContent(slides[i].innerHTML)
+			
+			if (!slideText.trim()) {
+				console.log('Empty slide, skipping')
+				continue
+			}
+
+			try {
+				console.log(`Playing slide ${i + 1}/${slides.length}`)
+				currentAudio = await generateSpeech(slideText)
+				await playAudio(currentAudio)
+			} catch (error) {
+				console.error('Error playing slide:', error)
+			}
+		}
+	} catch (error) {
+		console.error('Error during presentation:', error)
+	} finally {
+		isPresenting = false
+		if (currentAudio) {
+			currentAudio.pause()
+			currentAudio = null
+		}
+	}
+}
+
+const stopAutoPresentation = () => {
+	isPresenting = false
+	if (currentAudio) {
+		currentAudio.pause()
+		currentAudio = null
+	}
+}
+
+const handleQuestionSubmit = async () => {
+	if (!question.trim() || !data.presentation?.id) return
+	
+	isProcessingQuestion = true
+	try {
+		const response = await fetch('/api/question', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				presentationId: data.presentation.id,
+				question
+			})
+		})
+
+		if (!response.ok) {
+			throw new Error('Failed to get answer')
+		}
+
+		const result = await response.json()
+		answer = result.answer
+
+		// Generate speech for the answer using form action
+		const form = new FormData()
+		form.append('text', result.answer)
+		
+		const speechResponse = await fetch('?/generateSpeech', {
+			method: 'POST',
+			body: form
+		})
+		
+		const speechResult = await speechResponse.json()
+		if (speechResult.success) {
+			const audio = new Audio(speechResult.audio) // Use data URL directly
+			audio.onerror = (e) => console.error('Audio playback error:', e)
+			const playPromise = audio.play()
+			if (playPromise) {
+				playPromise.catch(e => console.error('Audio play error:', e))
+			}
+		}
+	} catch (error) {
+		console.error('Error handling question:', error)
+	} finally {
+		isProcessingQuestion = false
+	}
+}
+
 onMount(() => {
 	const initDeck = async () => {
 		console.log('Initializing deck')
@@ -40,6 +191,8 @@ onMount(() => {
 		}
 
 		try {
+			loadingStatus = 'Setting up knowledge base...'
+
 			loadingStatus = 'Parsing markdown...'
 			console.log('Parsing presentation content')
 
@@ -89,6 +242,7 @@ onMount(() => {
 	initDeck()
 
 	return () => {
+		stopAutoPresentation()
 		if (deck) {
 			console.log('Cleaning up Reveal.js')
 			deck.destroy()
@@ -96,6 +250,49 @@ onMount(() => {
 	}
 })
 </script>
+
+<div class="presentation-controls">
+	{#if !isPresenting}
+		<button onclick={startAutoPresentation}>
+			Start Auto-Presentation
+		</button>
+	{:else}
+		<button onclick={stopAutoPresentation}>
+			Stop Presentation
+		</button>
+	{/if}
+</div>
+
+<div class="question-interface" class:active={isAskingQuestion}>
+	<button 
+		class="question-toggle" 
+		onclick={() => isAskingQuestion = !isAskingQuestion}
+	>
+		{isAskingQuestion ? 'Close' : 'Ask a Question'}
+	</button>
+	
+	{#if isAskingQuestion}
+		<div class="question-form">
+			<input 
+				type="text" 
+				bind:value={question} 
+				placeholder="Ask about the presentation..."
+			/>
+			<button 
+				onclick={handleQuestionSubmit}
+				disabled={isProcessingQuestion}
+			>
+				{isProcessingQuestion ? 'Processing...' : 'Ask'}
+			</button>
+		</div>
+		
+		{#if answer}
+			<div class="answer">
+				{answer}
+			</div>
+		{/if}
+	{/if}
+</div>
 
 <div class="reveal">
 	<div class="slides">
@@ -188,4 +385,51 @@ onMount(() => {
 	font-size: 16px;
 	color: #666;
 } */
+
+.presentation-controls {
+	position: fixed;
+	bottom: 20px;
+	right: 20px;
+	z-index: 1000;
+}
+
+.presentation-controls button {
+	padding: 10px 20px;
+	border-radius: 5px;
+	background: #2c3e50;
+	color: white;
+	border: none;
+	cursor: pointer;
+}
+
+.question-interface {
+	position: fixed;
+	bottom: 20px;
+	left: 20px;
+	z-index: 1000;
+	background: white;
+	padding: 15px;
+	border-radius: 8px;
+	box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.question-form {
+	display: flex;
+	gap: 10px;
+	margin-top: 10px;
+}
+
+.question-form input {
+	flex: 1;
+	padding: 8px;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+}
+
+.answer {
+	margin-top: 15px;
+	padding: 10px;
+	background: #f5f5f5;
+	border-radius: 4px;
+}
 </style> 
