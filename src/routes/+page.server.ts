@@ -471,6 +471,7 @@ async function generateImagePrompts(content: string, model: TogetherAI) {
 			.replace(/^\s+|\s+$/g, '')     // Remove leading/trailing whitespace
 			.replace(/[\r\n]+/g, '\n')     // Normalize line endings
 			.replace(/.*?\[/s, '[')        // Remove any text before the first [
+			// biome-ignore lint/correctness/noEmptyCharacterClassInRegex: <explanation>
 			.replace(/\][^]*$/, ']')       // Remove any text after the last ]
 			
 		console.log('Cleaned response:', cleanedResponse)
