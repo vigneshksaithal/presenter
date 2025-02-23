@@ -2,16 +2,8 @@ import type { PageLoad } from './$types'
 import pb from '$lib/pocketbase'
 
 export const load = (async ({ params }) => {
-	const presentationId = params.id
-	if (!presentationId) {
-		return {
-			status: 404,
-			error: 'Presentation not found'
-		}
-	}
-
 	try {
-		const presentation = await pb.collection('presentations').getOne(presentationId)
+		const presentation = await pb.collection('presentations').getOne(params.id)
 		return {
 			presentation
 		}
@@ -21,4 +13,4 @@ export const load = (async ({ params }) => {
 			error: 'Presentation not found'
 		}
 	}
-}) satisfies PageLoad
+}) satisfies PageLoad 
