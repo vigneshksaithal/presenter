@@ -313,7 +313,7 @@ onMount(() => {
 	{/if}
 </div>
 
-<div class="question-interface fixed bottom-4 left-24" class:active={isAskingQuestion}>
+<div class="question-interface" class:active={isAskingQuestion}>
 	<button 
 		class="question-toggle" 
 		onclick={() => isAskingQuestion = !isAskingQuestion}
@@ -459,6 +459,16 @@ onMount(() => {
 	color: white;
 	border: none;
 	cursor: pointer;
+}
+
+.question-interface {
+	position: fixed;
+	bottom: 8px;
+	left: 96px;
+	z-index: 1000;
+	padding: 15px;
+	border-radius: 8px;
+	box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
 
 .question-form {
