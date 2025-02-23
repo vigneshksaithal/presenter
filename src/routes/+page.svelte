@@ -6,6 +6,9 @@ let textareaEl: HTMLTextAreaElement
 let prompt = $state('')
 let files = $state<File[]>([])
 let previewUrls = $state<string[]>([])
+let isSubmitting = $state(false)
+let showSuccessModal = $state(false)
+let generatedPresentationId = $state('')
 
 const handlePaste = (e: ClipboardEvent) => {
 	const pastedText = e.clipboardData?.getData('text') || ''
@@ -53,6 +56,14 @@ const removeFile = (index: number) => {
 	}
 }
 
+const closeModal = () => {
+	showSuccessModal = false
+}
+
+const goToPresentation = () => {
+	window.location.href = `/present/${generatedPresentationId}`
+}
+
 onMount(() => {
 	textareaEl?.focus()
 	return () => {
@@ -67,7 +78,54 @@ onMount(() => {
 <Navbar />
 
 <section class="max-w-xl mx-auto p-4">
-   <form method="POST" action="?/generate">
+   <form 
+		method="POST" 
+		action="?/generate"
+		onsubmit={async (e) => {
+			e.preventDefault()
+			console.log('Form submitted')
+			
+			const form = e.target as HTMLFormElement
+			const formData = new FormData(form)
+			
+			// Add files to form data
+			files.forEach(file => {
+				formData.append('files', file)
+			})
+			
+			// Log form data
+			console.log('Files:', files)
+			console.log('Prompt:', prompt)
+			
+			isSubmitting = true
+			
+			try {
+				console.log('Sending request to generate endpoint')
+				const response = await fetch('?/generate', {
+					method: 'POST',
+					body: formData
+				})
+				
+				console.log('Response received:', response)
+				const result = await response.json()
+				console.log('Result:', result)
+				
+				if (result.success) {
+					console.log('Generation successful:', result)
+					generatedPresentationId = result.presentationId
+					showSuccessModal = true
+				} else {
+					console.error('Generation failed:', result)
+					alert(result.error || 'Failed to generate presentation')
+				}
+			} catch (error) {
+				console.error('Error generating presentation:', error)
+				alert('Error generating presentation: ' + (error instanceof Error ? error.message : 'Unknown error'))
+			} finally {
+				isSubmitting = false
+			}
+		}}
+	>
     <textarea
         bind:value={prompt}
         id="prompt"
@@ -75,16 +133,19 @@ onMount(() => {
         bind:this={textareaEl}
         onpaste={handlePaste}
         placeholder="Enter your prompt... paste URLs to scrape it" 
-        rows={6}
+        rows={8}
         class="[&_@]:underline"
+        disabled={isSubmitting}
     ></textarea>
     
     <div class="mb-4" role="group">
         <!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
+        <!-- file upload -->
         <label
             role="button"
             for="files"
             class="secondary"
+            aria-disabled={isSubmitting}
         >
             <span>Upload (PDF, images)</span>
             <input
@@ -95,19 +156,22 @@ onMount(() => {
                 accept=".pdf,image/*"
                 class="hidden"
                 onchange={handleFileSelect}
+                disabled={isSubmitting}
             />
         </label>
         <button 
-        type="submit" 
-    >
-        Generate
-    </button>
+            type="submit"
+            aria-busy={isSubmitting}
+            disabled={isSubmitting}
+        >
+            {isSubmitting ? 'Generating...' : 'Generate'}
+        </button>
     </div>
 
     {#if files.length > 0}
-        <div class="mb-4">
+        <div class="mb-4" aria-busy={isSubmitting}>
             <h6>Selected files</h6>
-            <ul class=" gap-2">
+            <ul class="gap-2">
                 {#each files as file, index}
                     <li class="flex items-center gap-2 group">
                         {#if file.type.startsWith('image/')}
@@ -127,6 +191,7 @@ onMount(() => {
                             onclick={() => removeFile(index)}
                             class="outline secondary"
                             aria-label="Remove file"
+                            disabled={isSubmitting}
                         >
                             <svg class="size-4" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
@@ -137,5 +202,23 @@ onMount(() => {
             </ul>
         </div>
     {/if}
-   </form>
+</form>
 </section>
+
+{#if showSuccessModal}
+<dialog open>
+	<article>
+		<h2>Presentation Generated!</h2>
+		<p>
+			Your presentation has been successfully generated.
+			Click below to view it.
+		</p>
+		<footer>
+			<button class="secondary" onclick={closeModal}>
+				Close
+			</button>
+			<button onclick={goToPresentation}>View Presentation</button>
+		</footer>
+	</article>
+</dialog>
+{/if}
