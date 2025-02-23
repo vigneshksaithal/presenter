@@ -4,8 +4,8 @@ import type { PageData } from './$types'
 import Reveal from 'reveal.js'
 import type { Api as RevealApi, Options } from 'reveal.js'
 import 'reveal.js/dist/reveal.css'
-import 'reveal.js/dist/theme/white.css'
-import 'reveal.js/dist/theme/fonts/source-sans-pro/source-sans-pro.css'
+import 'reveal.js/dist/theme/black.css'
+// import 'reveal.js/dist/theme/fonts/source-sans-pro/source-sans-pro.css'
 import { onMount } from 'svelte'
 import { marked } from 'marked'
 
@@ -13,6 +13,17 @@ let { data }: { data: PageData } = $props()
 let deck: RevealApi | null = null
 let isLoading = $state(true)
 let loadingStatus = $state('Initializing...')
+
+const processMarkdownToSlides = (markdown: string) => {
+	// Split content by horizontal rule (---) to separate slides
+	const slides = markdown.split(/\n---\n/)
+	
+	// Process each slide with marked and wrap in section
+	return slides.map(slideContent => {
+		const processedContent = marked.parse(slideContent.trim())
+		return `<section>${processedContent}</section>`
+	}).join('\n')
+}
 
 onMount(() => {
 	const initDeck = async () => {
@@ -26,13 +37,15 @@ onMount(() => {
 		try {
 			loadingStatus = 'Parsing markdown...'
 			console.log('Parsing presentation content')
-			const slides = await marked.parse(data.presentation.content)
+			
+			// Process markdown into separate slides
+			const slidesHtml = processMarkdownToSlides(data.presentation.content)
 			
 			loadingStatus = 'Setting up slides...'
 			console.log('Setting up slide container')
 			const slideContainer = document.querySelector('.slides')
 			if (slideContainer) {
-				slideContainer.innerHTML = slides
+				slideContainer.innerHTML = slidesHtml
 			}
 
 			loadingStatus = 'Configuring presentation...'
@@ -112,19 +125,19 @@ onMount(() => {
 	text-align: left;
 }
 
-:global(.reveal h1) {
+/* :global(.reveal h1) {
 	font-size: 2.5em;
 	color: #2c3e50;
 	margin-bottom: 0.5em;
-}
+} */
 
-:global(.reveal h2) {
+/* :global(.reveal h2) {
 	font-size: 1.8em;
 	color: #34495e;
 	margin-bottom: 0.5em;
-}
+} */
 
-:global(.reveal h3) {
+/* :global(.reveal h3) {
 	font-size: 1.4em;
 	color: #2c3e50;
 }
@@ -138,9 +151,9 @@ onMount(() => {
 :global(.reveal ul) {
 	font-size: 1.2em;
 	line-height: 1.4;
-}
+} */
 
-:global(.reveal li) {
+/* :global(.reveal li) {
 	margin-bottom: 0.5em;
 }
 
@@ -178,5 +191,5 @@ onMount(() => {
 	background-color: transparent;
 	font-size: 16px;
 	color: #666;
-}
+} */
 </style> 

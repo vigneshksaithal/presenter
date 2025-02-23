@@ -263,36 +263,47 @@ const generatePresentation = async (content: string) => {
 
 const PRESENTATION_PROMPT = `
 You are an expert presentation creator. Create a beautiful presentation from the provided content.
-Follow these rules:
+Follow these rules strictly:
 
-1. Use reveal.js markdown format with horizontal slides separated by "---"
-2. Create clear and concise slides
-3. Use proper headings and sections
-4. Include key points and insights
-5. Make it visually appealing with proper spacing
-6. Use bullet points for lists
-7. Keep each slide focused on one topic
-8. Add transition hints where appropriate
-9. DO NOT wrap your response in backticks or markdown code blocks
-10. Start directly with the presentation content
+1. Use reveal.js markdown format
+2. Separate each slide with "---" on its own line (with newlines before and after)
+3. Start with a title slide
+4. Create clear and concise slides
+5. Use proper headings (# for title, ## for sections, ### for subsections)
+6. Include key points and insights
+7. Use bullet points for lists
+8. Keep each slide focused on one topic
+9. Add speaker notes using "Note:" after slide content where helpful
+10. DO NOT wrap your response in backticks or markdown code blocks
+11. Start directly with the presentation content
+12. Maximum 5-7 bullet points per slide
+13. Use descriptive section titles
+14. Include a summary/conclusion slide at the end
 
 Example format:
-# Title Slide
+
+# Main Title
+Subtitle or description
 
 ---
 
 ## Section 1
+* Key point 1
+* Key point 2
+* Key point 3
 
-* Point 1
-* Point 2
+Note: Additional context for the speaker
 
 ---
 
 ## Section 2
-
 Content for section 2
 
-Note: Speaker notes go here
+---
+
+## Summary
+* Main takeaway 1
+* Main takeaway 2
 `
 
 const processPDF = async (pdfFile: File, presentationId: string) => {
