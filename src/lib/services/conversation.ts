@@ -1,4 +1,4 @@
-import { CHROMA_DB_PATH, OPENAI_API_KEY } from '$env/static/private'
+import { CHROMA_DB_PATH, OPENAI_API_KEY, OPENAI_MODEL } from '$env/static/private'
 import { OpenAIEmbeddings } from "@langchain/openai"
 import { ChatOpenAI } from "@langchain/openai"
 import { Chroma } from '@langchain/community/vectorstores/chroma'
@@ -8,7 +8,7 @@ import { ChatPromptTemplate } from '@langchain/core/prompts'
 // Initialize OpenAI model
 const model = new ChatOpenAI({
 	apiKey: OPENAI_API_KEY,
-	model: 'gpt-4o-mini',
+	model: OPENAI_MODEL,
 	temperature: 0.7,
 	maxTokens: 4096
 })

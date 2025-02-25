@@ -1,4 +1,4 @@
-import { OPENAI_API_KEY } from '$env/static/private'
+import { OPENAI_API_KEY, OPENAI_MODEL } from '$env/static/private'
 import { CHROMA_DB_PATH } from '$env/static/private'
 import { OpenAIEmbeddings } from "@langchain/openai"
 import { ChatOpenAI } from "@langchain/openai"
@@ -33,7 +33,11 @@ export const POST: RequestHandler = async ({ request }) => {
 		// Get collection with embeddings function
 		const collection = await chroma.getOrCreateCollection({
 			name: `presentation_${presentationId}`,
-			embeddingFunction: embeddings
+			embeddingFunction: {
+				generate: async (texts: string[]) => {
+					return await embeddings.embedDocuments(texts);
+				}
+			}
 		})
 
 		// Get embeddings for the question
@@ -48,7 +52,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		// Initialize the model
 		const model = new ChatOpenAI({
 			apiKey: OPENAI_API_KEY,
-			model: 'gpt-4o-mini'
+			model: OPENAI_MODEL
 		})
 
 		// Create prompt template
@@ -70,7 +74,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		// Get response from model
 		const response = await model.invoke(formattedPrompt)
-		return json({ answer: response })
+		return json({ answer: response.content.toString() })
 	} catch (err) {
 		console.error('Error handling question:', err)
 		throw error(500, 'Failed to handle question')

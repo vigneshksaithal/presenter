@@ -1,7 +1,8 @@
 import {
 	CHROMA_DB_PATH,
 	FAL_AI_API_KEY,
-	OPENAI_API_KEY
+	OPENAI_API_KEY,
+	OPENAI_MODEL
 } from '$env/static/private'
 import pb from '$lib/pocketbase'
 import { fal } from '@fal-ai/client'
@@ -476,7 +477,7 @@ const processPDF = async (pdfFile: File, presentationId: string) => {
 const createModel = () => {
 	return new ChatOpenAI({
 		apiKey: OPENAI_API_KEY,
-		model: 'gpt-4o-mini'
+		model: OPENAI_MODEL
 	})
 }
 
