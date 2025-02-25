@@ -76,10 +76,10 @@ onMount(() => {
 	}
 })
 
-function handleGenerate(form) {
+function handleGenerate(form: HTMLFormElement) {
 	error = ''
 	isSubmitting = true
-	return async ({ result }) => {
+	return async ({ result }: { result: any }) => {
 		isSubmitting = false
 		
 		if (result.type === 'success') {

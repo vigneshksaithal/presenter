@@ -120,9 +120,29 @@ export const actions: Actions = {
 				}
 			}
 
-			// Generate final presentation
-			console.log('Generating final presentation')
-			const allContent = [...pdfResults, scrapedSummaries]
+			// NEW: Process raw prompt as content if no other content is available
+			let promptContent = ''
+			if (pdfResults.length === 0 && !scrapedSummaries && prompt.trim()) {
+				console.log('Using prompt text as content')
+				// Process the prompt text to generate presentation content
+				const model = createModel()
+				promptContent = await generateContentFromPrompt(prompt, model)
+				console.log('Generated content from prompt')
+				
+				// Also save this to ChromaDB
+				try {
+					const chunks = await splitText(promptContent)
+					const embeddings = createEmbeddings()
+					await createVectorStore(chunks, embeddings, presentationId)
+					console.log('Saved prompt content to ChromaDB')
+				} catch (error) {
+					console.error('Error saving prompt content to ChromaDB:', error)
+					// Non-fatal error, continue with generation
+				}
+			}
+
+			// Combine all content sources, now including promptContent
+			const allContent = [...pdfResults, scrapedSummaries, promptContent]
 				.filter(Boolean)
 				.join('\n\n')
 
@@ -334,10 +354,9 @@ const generatePresentation = async (data: {
 		
 		// Fix common JSON formatting issues
 		jsonString = jsonString
-			.replace(/\n/g, '\\n')  // Convert literal newlines in strings to escaped \n
-			.replace(/"\s*\n\s*"/g, '", "')  // Fix broken lines between properties
-			.replace(/"\s*\n\s*}/g, '"}')    // Fix broken lines at the end of objects
-			.replace(/}\s*\n\s*"/g, '}, "'); // Fix broken lines after objects
+			.replace(/"\s*\n\s*"/g, '", "')
+			.replace(/"\s*\n\s*}/g, '"}')
+			.replace(/}\s*\n\s*"/g, '}, "');
 		
 		// For debugging
 		console.log('Processed JSON string (first 500 chars):', jsonString.substring(0, 500));
@@ -362,13 +381,13 @@ const generatePresentation = async (data: {
 			
 			// Try to extract a title from the response
 			const titleMatch = responseText.match(/title["']?\s*:\s*["']([^"']+)["']/);
-			if (titleMatch && titleMatch[1]) {
+			if (titleMatch?.[1]) {
 				title = titleMatch[1];
 			}
 			
 			// Try to extract content from the response
 			const contentMatch = responseText.match(/content["']?\s*:\s*["']([^"']+)["']/);
-			if (contentMatch && contentMatch[1]) {
+			if (contentMatch?.[1]) {
 				content = contentMatch[1];
 			} else {
 				// If no content found, use the raw response but remove JSON and Markdown formatting
@@ -707,4 +726,31 @@ async function saveImagesToPocketbase(
 	}
 
 	return savedImages
+}
+
+// Add this new function to process the prompt directly
+async function generateContentFromPrompt(prompt: string, model: ChatOpenAI) {
+	const response = await model.invoke([
+		{
+			role: 'system',
+			content: `
+You are an expert at creating comprehensive, well-structured content for presentations.
+Given a prompt or topic, generate detailed presentation content that covers:
+1. A thorough introduction to the topic
+2. Key points and concepts
+3. Examples and illustrations where appropriate
+4. Practical applications or implications
+5. Conclusions or next steps
+
+Format your response in well-structured markdown, ready to be used in a presentation.
+Make sure the content is informative, engaging, and suitable for slides.
+Focus on providing high-quality, actionable information that would make for an excellent presentation.`
+		},
+		{
+			role: 'user',
+			content: `Generate presentation content about: ${prompt}`
+		}
+	])
+
+	return response.content.toString()
 }
