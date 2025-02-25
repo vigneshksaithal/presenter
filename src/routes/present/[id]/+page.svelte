@@ -1,4 +1,3 @@
-<!-- src/routes/present/[id]/+page.svelte -->
 <script lang="ts">
 import Reveal from 'reveal.js'
 import type { Options, Api as RevealApi } from 'reveal.js'
