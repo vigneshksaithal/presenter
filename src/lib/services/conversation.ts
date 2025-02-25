@@ -1,22 +1,22 @@
-import { CHROMA_DB_PATH, TOGETHER_AI_API_KEY } from '$env/static/private'
-import { TogetherAIEmbeddings } from '@langchain/community/embeddings/togetherai'
-import { TogetherAI } from '@langchain/community/llms/togetherai'
+import { CHROMA_DB_PATH, OPENAI_API_KEY } from '$env/static/private'
+import { OpenAIEmbeddings } from "@langchain/openai"
+import { ChatOpenAI } from "@langchain/openai"
 import { Chroma } from '@langchain/community/vectorstores/chroma'
 import { Document } from '@langchain/core/documents'
 import { ChatPromptTemplate } from '@langchain/core/prompts'
 
-// Initialize Together AI model
-const model = new TogetherAI({
-	apiKey: TOGETHER_AI_API_KEY,
-	modelName: 'deepseek-ai/DeepSeek-V3',
+// Initialize OpenAI model
+const model = new ChatOpenAI({
+	apiKey: OPENAI_API_KEY,
+	model: 'gpt-4o-mini',
 	temperature: 0.7,
 	maxTokens: 4096
 })
 
-// Initialize Together AI embeddings
-const embeddings = new TogetherAIEmbeddings({
-	apiKey: TOGETHER_AI_API_KEY,
-	modelName: 'togethercomputer/m2-bert-80M-8k-retrieval'
+// Initialize OpenAI embeddings
+const embeddings = new OpenAIEmbeddings({
+	apiKey: OPENAI_API_KEY,
+	modelName: 'text-embedding-3-small'
 })
 
 export const setupPresentationKnowledge = async (

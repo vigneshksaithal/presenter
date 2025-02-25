@@ -1,13 +1,13 @@
 import {
 	CHROMA_DB_PATH,
 	FAL_AI_API_KEY,
-	TOGETHER_AI_API_KEY
+	OPENAI_API_KEY
 } from '$env/static/private'
 import pb from '$lib/pocketbase'
 import { fal } from '@fal-ai/client'
 import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf'
-import { TogetherAIEmbeddings } from '@langchain/community/embeddings/togetherai'
-import { TogetherAI } from '@langchain/community/llms/togetherai'
+import { OpenAIEmbeddings } from "@langchain/openai"
+import { ChatOpenAI } from "@langchain/openai"
 import { Chroma } from '@langchain/community/vectorstores/chroma'
 import type { Document } from '@langchain/core/documents'
 import type { Actions } from '@sveltejs/kit'
@@ -26,6 +26,7 @@ export const actions: Actions = {
 	generate: async ({ request, fetch }) => {
 		console.log('Generate action started')
 		let presentationId: string | undefined
+		let success = false // Track success state explicitly
 
 		try {
 			const formData = await request.formData()
@@ -173,6 +174,9 @@ export const actions: Actions = {
 					status: 'completed'
 				})
 				console.log('Saved to PocketBase')
+				
+				// Set success flag after confirmed save
+				success = true
 			} catch (error) {
 				console.error('Error saving to PocketBase:', error)
 				throw new Error(
@@ -180,6 +184,12 @@ export const actions: Actions = {
 				)
 			}
 
+			// Check success state before returning
+			if (!success) {
+				throw new Error('Operation completed but success state not set')
+			}
+			
+			console.log('Returning success response with ID:', presentationId)
 			return {
 				success: true,
 				presentationId
@@ -193,11 +203,13 @@ export const actions: Actions = {
 					await pb.collection('presentations').update(presentationId, {
 						status: 'failed'
 					})
+					console.log('Updated presentation status to failed')
 				} catch (updateError) {
 					console.error('Failed to update status to failed:', updateError)
 				}
 			}
 
+			console.log('Returning error response:', error instanceof Error ? error.message : 'Unknown error')
 			return {
 				success: false,
 				error: error instanceof Error ? error.message : 'Unknown error'
@@ -251,9 +263,9 @@ const scrapeUrls = async (urls: string[], fetch: typeof globalThis.fetch) => {
 }
 
 const generateSummary = async (content: string) => {
-	const llm = new TogetherAI({
-		apiKey: TOGETHER_AI_API_KEY,
-		model: 'deepseek-ai/DeepSeek-V3'
+	const llm = new ChatOpenAI({
+		apiKey: OPENAI_API_KEY,
+		model: 'gpt-4o-mini'
 	})
 
 	const inputText = `
@@ -266,7 +278,8 @@ const generateSummary = async (content: string) => {
 
 	const completion = await llm.invoke(inputText)
 
-	return completion
+	// Extract the actual content string from the AIMessage
+	return completion.content.toString()
 }
 
 const splitText = async (text: string) => {
@@ -294,68 +307,140 @@ const generatePresentation = async (data: {
 		}
 	])
 
-	console.log('LLM Response:', response)
+	console.log('LLM Response type:', typeof response.content)
+	const responseText = response.content.toString()
+	
+	// Log part of the response for debugging
+	console.log('LLM Response (first 500 chars):', responseText.substring(0, 500))
+	console.log('LLM Response (last 500 chars):', responseText.substring(Math.max(0, responseText.length - 500)))
 
 	try {
-		// Extract JSON from response
-		const jsonString = response
-			.replace(/```json/g, '')
-			.replace(/```/g, '')
-			.trim()
-		const result = JSON.parse(jsonString)
+		// More aggressively clean and parse the response
+		let jsonString = responseText;
+		
+		// Remove any markdown code block formatting
+		jsonString = jsonString.replace(/```(json)?/g, '').trim();
+		
+		// Try to extract just the JSON part (everything between first { and last })
+		const firstBrace = jsonString.indexOf('{');
+		const lastBrace = jsonString.lastIndexOf('}');
+		
+		if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+			jsonString = jsonString.substring(firstBrace, lastBrace + 1);
+		}
+		
+		// Remove any escape characters that might break JSON
+		jsonString = jsonString.replace(/\\(?=[^"\\])/g, '\\\\');
+		
+		// Fix common JSON formatting issues
+		jsonString = jsonString
+			.replace(/\n/g, '\\n')  // Convert literal newlines in strings to escaped \n
+			.replace(/"\s*\n\s*"/g, '", "')  // Fix broken lines between properties
+			.replace(/"\s*\n\s*}/g, '"}')    // Fix broken lines at the end of objects
+			.replace(/}\s*\n\s*"/g, '}, "'); // Fix broken lines after objects
+		
+		// For debugging
+		console.log('Processed JSON string (first 500 chars):', jsonString.substring(0, 500));
+		
+		// Try to parse the cleaned JSON
+		const result = JSON.parse(jsonString);
 
 		if (!result.title || !result.content) {
-			throw new Error('Invalid response format from LLM')
+			throw new Error('Invalid response format from LLM');
 		}
 
-		return result
+		return result;
 	} catch (error) {
-		console.error('Failed to parse presentation response:', error)
-		throw new Error('Failed to generate valid presentation format')
+		console.error('Failed to parse presentation response:', error);
+		console.error('Raw response text:', responseText);
+		
+		// Fallback: Create a simple valid response
+		try {
+			// Extract title and content manually
+			let title = "Generated Presentation";
+			let content = responseText;
+			
+			// Try to extract a title from the response
+			const titleMatch = responseText.match(/title["']?\s*:\s*["']([^"']+)["']/);
+			if (titleMatch && titleMatch[1]) {
+				title = titleMatch[1];
+			}
+			
+			// Try to extract content from the response
+			const contentMatch = responseText.match(/content["']?\s*:\s*["']([^"']+)["']/);
+			if (contentMatch && contentMatch[1]) {
+				content = contentMatch[1];
+			} else {
+				// If no content found, use the raw response but remove JSON and Markdown formatting
+				content = responseText
+					.replace(/```json/g, '')
+					.replace(/```/g, '')
+					.replace(/{|\}|"title":|"content":/g, '')
+					.trim();
+			}
+			
+			return {
+				title,
+				content
+			};
+		} catch (fallbackError) {
+			console.error('Even fallback extraction failed:', fallbackError);
+			throw new Error('Failed to generate valid presentation format');
+		}
 	}
 }
 
 const PRESENTATION_PROMPT = `
-You are an expert presentation creator. Create a beautiful presentation from the provided content and images.
-Follow these rules strictly:
+You are an expert presentation designer specializing in reveal.js markdown presentations. Create a visually appealing, professional presentation.
 
-1. First, generate a relevant title for the presentation based on the content
-2. Use reveal.js markdown format
-3. Your response MUST be in this JSON format:
+FORMAT RULES (CRITICAL):
+1. Your response must be EXACTLY in this JSON format: {"title": "Title Here", "content": "markdown content here"}
+2. The "content" field must contain actual line breaks, NOT literal "\\n" characters
+3. NEVER include "\\n" literals anywhere in your response
+
+SLIDE STRUCTURE:
+- Title slide: Use "# Title" on first line, followed by a subtitle on next line
+- Separate slides with three dashes like this "---"
+- Keep slides minimal: 1 concept per slide, 5-7 bullet points maximum
+- Use ## for section headings (not ### or deeper)
+- Use blank lines between different elements on a slide
+
+FORMATTING:
+- Bullet lists: Use "* " for main points and "  - " (two spaces) for sub-points
+- Numbered lists: Use "1. ", "2. ", etc.
+- Images: "![Description](image_url)" followed by "*Caption: text*" on next line
+- Speaker notes: Start with "Note: " after slide content
+
+EXAMPLE (with actual line breaks, not \\n):
 {
-  "title": "Generated Title Here",
-  "content": "Presentation content in markdown..."
-}
-4. The title should be concise and descriptive (max 8 words)
-5. Start the content with the title as the first slide
-6. Separate each slide with "---" on its own line (with newlines before and after)
-7. Create clear and concise slides
-8. Use proper headings (# for title, ## for sections, ### for subsections)
-9. Include key points and insights
-10. Use bullet points for lists
-11. Keep each slide focused on one topic
-12. Add speaker notes using "Note:" after slide content where helpful
-13. Use descriptive section titles
-14. Include a summary/conclusion slide at the end
-15. Include the provided images in relevant slides using markdown image syntax: ![description](image_url)
-16. Place images where they best support the content
-17. Add the image description as a caption below the image
+  "title": "Effective Communication",
+  "content": "
+  # Effective Communication
+Building stronger teams through clarity
+---
+## Key Principles
+* Clear messaging
+* Active listening
+* Timely feedback
+* Appropriate channels
+* Empathetic approach
 
-Example format:
+![Communication flow](image_url)
+*Caption: Effective communication flow in organizations*
 
-# Main Title
-Subtitle or description
-
+Note: Emphasize that these principles build on each other
 ---
 
-## Section 1
-* Key point 1
-* Key point 2
 
-![Image description](image_url)
-*Caption: Image description*
+## Implementation Steps
+1. Assess current patterns
+2. Identify gaps
+3. Develop strategies
+4. Train team members
+5. Measure improvements"
+}
 
-Note: Additional context for the speaker
+IMPORTANT: Use actual line breaks between lines, not \\n escape sequences!
 `
 
 const processPDF = async (pdfFile: File, presentationId: string) => {
@@ -369,11 +454,12 @@ const processPDF = async (pdfFile: File, presentationId: string) => {
 	return response
 }
 
-const createModel = () =>
-	new TogetherAI({
-		model: 'deepseek-ai/DeepSeek-V3',
-		apiKey: TOGETHER_AI_API_KEY
+const createModel = () => {
+	return new ChatOpenAI({
+		apiKey: OPENAI_API_KEY,
+		model: 'gpt-4o-mini'
 	})
+}
 
 const createPDFLoader = (file: File) => new PDFLoader(file)
 
@@ -386,9 +472,9 @@ const splitDocuments = async (docs: Document[]) => {
 	return splitter.splitDocuments(docs)
 }
 
-const extractInformation = async (chunks: Document[], model: TogetherAI) => {
+const extractInformation = async (chunks: Document[], model: ChatOpenAI) => {
 	const allContent = chunks.map((chunk) => chunk.pageContent).join(' ')
-	return model.invoke([
+	const response = await model.invoke([
 		{
 			role: 'system',
 			content: SYSTEM_PROMPT
@@ -398,6 +484,9 @@ const extractInformation = async (chunks: Document[], model: TogetherAI) => {
 			content: allContent
 		}
 	])
+	
+	// Return the actual content string
+	return response.content.toString()
 }
 
 const SYSTEM_PROMPT = `
@@ -421,15 +510,16 @@ const SYSTEM_PROMPT = `
     Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat."
 `
 
-const createEmbeddings = () =>
-	new TogetherAIEmbeddings({
-		apiKey: TOGETHER_AI_API_KEY,
-		model: 'togethercomputer/m2-bert-80M-8k-retrieval'
+const createEmbeddings = () => {
+	return new OpenAIEmbeddings({
+		apiKey: OPENAI_API_KEY,
+		modelName: 'text-embedding-3-small'
 	})
+}
 
 const createVectorStore = async (
 	chunks: Document[],
-	embeddings: TogetherAIEmbeddings,
+	embeddings: OpenAIEmbeddings,
 	presentationId: string
 ) =>
 	Chroma.fromDocuments(chunks, embeddings, {
@@ -468,7 +558,7 @@ Example output (copy this format exactly):
   }
 ]`
 
-async function generateImagePrompts(content: string, model: TogetherAI) {
+async function generateImagePrompts(content: string, model: ChatOpenAI) {
 	const response = await model.invoke([
 		{
 			role: 'system',
@@ -481,8 +571,11 @@ async function generateImagePrompts(content: string, model: TogetherAI) {
 	])
 
 	try {
+		// Get the response as a string
+		const responseText = response.content.toString()
+		
 		// Clean the response more thoroughly
-		const cleanedResponse = response
+		const cleanedResponse = responseText
 			.replace(/```json\s*/g, '') // Remove JSON code block markers
 			.replace(/```\s*/g, '') // Remove any other code block markers
 			.replace(/^\s+|\s+$/g, '') // Remove leading/trailing whitespace
