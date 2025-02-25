@@ -641,7 +641,7 @@ async function generateImages(
 
 	for (const { prompt, description } of imagePrompts) {
 		try {
-			const result = await fal.subscribe('fal-ai/flux', {
+			const result = await fal.subscribe('fal-ai/flux-pro/new', {
 				input: {
 					prompt,
 					image_size: 'landscape_16_9',
