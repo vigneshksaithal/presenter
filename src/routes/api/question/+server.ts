@@ -1,7 +1,7 @@
-import { TOGETHER_AI_API_KEY } from '$env/static/private'
+import { OPENAI_API_KEY } from '$env/static/private'
 import { CHROMA_DB_PATH } from '$env/static/private'
-import { TogetherAIEmbeddings } from '@langchain/community/embeddings/togetherai'
-import { TogetherAI } from '@langchain/community/llms/togetherai'
+import { OpenAIEmbeddings } from "@langchain/openai"
+import { ChatOpenAI } from "@langchain/openai"
 import { ChatPromptTemplate } from '@langchain/core/prompts'
 import { error, json } from '@sveltejs/kit'
 import { ChromaClient } from 'chromadb'
@@ -20,8 +20,9 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 
 		// Initialize embeddings
-		const embeddings = new TogetherAIEmbeddings({
-			apiKey: TOGETHER_AI_API_KEY
+		const embeddings = new OpenAIEmbeddings({
+			apiKey: OPENAI_API_KEY,
+			modelName: 'text-embedding-3-small'
 		})
 
 		// Initialize ChromaDB client
@@ -45,9 +46,9 @@ export const POST: RequestHandler = async ({ request }) => {
 		})
 
 		// Initialize the model
-		const model = new TogetherAI({
-			apiKey: TOGETHER_AI_API_KEY,
-			modelName: 'mistralai/Mixtral-8x7B-Instruct-v0.1'
+		const model = new ChatOpenAI({
+			apiKey: OPENAI_API_KEY,
+			model: 'gpt-4o-mini'
 		})
 
 		// Create prompt template

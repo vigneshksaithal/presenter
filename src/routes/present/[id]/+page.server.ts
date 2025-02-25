@@ -1,12 +1,12 @@
-import { CHROMA_DB_PATH, TOGETHER_AI_API_KEY } from '$env/static/private'
+import { CHROMA_DB_PATH, OPENAI_API_KEY } from '$env/static/private'
 import pb from '$lib/pocketbase'
-import { TogetherAIEmbeddings } from '@langchain/community/embeddings/togetherai'
+import { OpenAIEmbeddings } from "@langchain/openai"
 import { ChromaClient } from 'chromadb'
 import type { PageServerLoad } from './$types'
 
-const embeddings = new TogetherAIEmbeddings({
-	apiKey: TOGETHER_AI_API_KEY,
-	modelName: 'togethercomputer/m2-bert-80M-8k-retrieval'
+const embeddings = new OpenAIEmbeddings({
+	apiKey: OPENAI_API_KEY,
+	modelName: 'text-embedding-3-small'
 })
 
 const chroma = new ChromaClient({

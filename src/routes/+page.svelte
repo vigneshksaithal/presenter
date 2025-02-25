@@ -1,6 +1,7 @@
 <script lang="ts">
 import { onMount } from 'svelte'
 import Navbar from './Navbar.svelte'
+import { enhance } from '$app/forms'
 
 let textareaEl: HTMLTextAreaElement
 let prompt = $state('')
@@ -9,6 +10,7 @@ let previewUrls = $state<string[]>([])
 let isSubmitting = $state(false)
 let showSuccessModal = $state(false)
 let generatedPresentationId = $state('')
+let error = $state('')
 
 const handlePaste = (e: ClipboardEvent) => {
 	const pastedText = e.clipboardData?.getData('text') || ''
@@ -73,6 +75,26 @@ onMount(() => {
 		}
 	}
 })
+
+function handleGenerate(form) {
+	error = ''
+	isSubmitting = true
+	return async ({ result }) => {
+		isSubmitting = false
+		
+		if (result.type === 'success') {
+			const data = result.data
+			if (data && data.success === true) {
+				generatedPresentationId = data.presentationId
+				showSuccessModal = true
+			} else {
+				error = data.error || 'Failed to generate presentation'
+			}
+		} else {
+			error = 'Failed to process request'
+		}
+	}
+}
 </script>
 
 <Navbar />
@@ -81,50 +103,8 @@ onMount(() => {
    <form 
 		method="POST" 
 		action="?/generate"
-		onsubmit={async (e) => {
-			e.preventDefault()
-			console.log('Form submitted')
-			
-			const form = e.target as HTMLFormElement
-			const formData = new FormData(form)
-			
-			// Add files to form data
-			files.forEach(file => {
-				formData.append('files', file)
-			})
-			
-			// Log form data
-			console.log('Files:', files)
-			console.log('Prompt:', prompt)
-			
-			isSubmitting = true
-			
-			try {
-				console.log('Sending request to generate endpoint')
-				const response = await fetch('?/generate', {
-					method: 'POST',
-					body: formData
-				})
-				
-				console.log('Response received:', response)
-				const result = await response.json()
-				console.log('Result:', result)
-				
-				if (result.success) {
-					console.log('Generation successful:', result)
-					generatedPresentationId = result.presentationId
-					showSuccessModal = true
-				} else {
-					console.error('Generation failed:', result)
-					alert(result.error || 'Failed to generate presentation')
-				}
-			} catch (error) {
-				console.error('Error generating presentation:', error)
-				alert('Error generating presentation: ' + (error instanceof Error ? error.message : 'Unknown error'))
-			} finally {
-				isSubmitting = false
-			}
-		}}
+		use:enhance={handleGenerate}
+		enctype="multipart/form-data"
 	>
     <textarea
         bind:value={prompt}
@@ -221,4 +201,11 @@ onMount(() => {
 		</footer>
 	</article>
 </dialog>
+{/if}
+
+{#if error}
+  <div class="error-message bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative max-w-xl mx-auto mt-4">
+    <strong class="font-bold">Error: </strong>
+    <span class="block sm:inline">{error}</span>
+  </div>
 {/if}
