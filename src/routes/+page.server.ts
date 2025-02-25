@@ -521,6 +521,7 @@ const SYSTEM_PROMPT = `
     5. Don't add any extra information.
     6. All information should be useful.
     7. Don't repeat any information.
+	8. Don't add "\n" (backslash n) in the output. Instead use "---" for new slides. And use blank lines between different elements on a slide.
 
     Example for outputs:
     "# Heading 1
