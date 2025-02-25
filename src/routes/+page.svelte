@@ -127,7 +127,7 @@ function handleGenerate(form: HTMLFormElement) {
             class="secondary outline"
             aria-disabled={isSubmitting}
         >
-            <span>Upload (PDF, images)</span>
+            <span>Upload PDF</span>
             <input
                 type="file"
                 name="files"
