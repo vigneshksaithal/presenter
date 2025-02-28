@@ -91,9 +91,8 @@ export const handleQuestion = async (
 			context,
 			question
 		})
-
 		const response = await model.invoke(formattedPrompt)
-		return response
+		return response.content.toString()
 	} catch (error) {
 		console.error('Error handling question:', error)
 		throw error
