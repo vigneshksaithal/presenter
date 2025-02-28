@@ -422,12 +422,11 @@ const generatePresentation = async (data: {
 }
 
 const PRESENTATION_PROMPT = `
-You are an expert presentation designer specializing in reveal.js markdown presentations. Create a visually appealing, professional presentation.
+You are an expert presentation designer specializing in reveal.js markdown presentations in Markdown format. Create a visually appealing, professional presentation.
 
 FORMAT RULES (CRITICAL):
 1. Your response must be EXACTLY in this JSON format: {"title": "Title Here", "content": "markdown content here"}
-2. The "content" field must contain actual line breaks, NOT literal "\\n" characters
-3. NEVER include "\\n" literals anywhere in your response
+2. The "content" field must contain actual line breaks, NOT literal "\\n"
 
 SLIDE STRUCTURE:
 - Title slide: Use "# Title" on first line, followed by a subtitle on next line
@@ -437,41 +436,43 @@ SLIDE STRUCTURE:
 - Use blank lines between different elements on a slide
 
 FORMATTING:
-- Bullet lists: Use "* " for main points and "  - " (two spaces) for sub-points
+- Bullet lists: Use "*" for main points and " - " (two spaces) for sub-points
 - Numbered lists: Use "1. ", "2. ", etc.
 - Images: "![Description](image_url)" followed by "*Caption: text*" on next line
 - Speaker notes: Start with "Note: " after slide content
 
-EXAMPLE (with actual line breaks, not \\n):
+EXAMPLE:
 {
   "title": "Effective Communication",
   "content": "
-  # Effective Communication
-Building stronger teams through clarity
----
-## Key Principles
-* Clear messaging
-* Active listening
-* Timely feedback
-* Appropriate channels
-* Empathetic approach
+  	# Effective Communication
 
-![Communication flow](image_url)
-*Caption: Effective communication flow in organizations*
+	Building stronger teams through clarity
 
-Note: Emphasize that these principles build on each other
----
+	---
 
+	## Key Principles
 
-## Implementation Steps
-1. Assess current patterns
-2. Identify gaps
-3. Develop strategies
-4. Train team members
-5. Measure improvements"
+	* Clear messaging
+	* Active listening
+	* Timely feedback
+	* Appropriate channels
+	* Empathetic approach
+
+	![Communication flow](https://i.ibb.co/0r00000/image.png)
+	*Caption: Effective communication flow in organizations*
+
+	Note: Emphasize that these principles build on each other
+
+	---
+
+	## Implementation Steps
+	1. Assess current patterns
+	2. Identify gaps
+	3. Develop strategies
+	4. Train team members
+	5. Measure improvements"
 }
-
-IMPORTANT: Use actual line breaks between lines, not \\n escape sequences!
 `
 
 const processPDF = async (pdfFile: File, presentationId: string) => {
