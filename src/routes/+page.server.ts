@@ -426,7 +426,7 @@ You are an expert presentation designer specializing in reveal.js markdown prese
 
 FORMAT RULES (CRITICAL):
 1. Your response must be EXACTLY in this JSON format: {"title": "Title Here", "content": "markdown content here"}
-2. The "content" field must contain actual line breaks, NOT literal "\\n"
+2. The "content" field must contain actual line breaks, NOT literal "\n"
 
 SLIDE STRUCTURE:
 - Title slide: Use "# Title" on first line, followed by a subtitle on next line
