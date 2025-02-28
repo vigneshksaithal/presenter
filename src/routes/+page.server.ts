@@ -7,10 +7,10 @@ import {
 import pb from '$lib/pocketbase'
 import { fal } from '@fal-ai/client'
 import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf'
-import { OpenAIEmbeddings } from "@langchain/openai"
-import { ChatOpenAI } from "@langchain/openai"
 import { Chroma } from '@langchain/community/vectorstores/chroma'
 import type { Document } from '@langchain/core/documents'
+import { OpenAIEmbeddings } from '@langchain/openai'
+import { ChatOpenAI } from '@langchain/openai'
 import type { Actions } from '@sveltejs/kit'
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter'
 import type { PageServerLoad } from './$types'
@@ -129,7 +129,7 @@ export const actions: Actions = {
 				const model = createModel()
 				promptContent = await generateContentFromPrompt(prompt, model)
 				console.log('Generated content from prompt')
-				
+
 				// Also save this to ChromaDB
 				try {
 					const chunks = await splitText(promptContent)
@@ -195,7 +195,7 @@ export const actions: Actions = {
 					status: 'completed'
 				})
 				console.log('Saved to PocketBase')
-				
+
 				// Set success flag after confirmed save
 				success = true
 			} catch (error) {
@@ -209,7 +209,7 @@ export const actions: Actions = {
 			if (!success) {
 				throw new Error('Operation completed but success state not set')
 			}
-			
+
 			console.log('Returning success response with ID:', presentationId)
 			return {
 				success: true,
@@ -230,7 +230,10 @@ export const actions: Actions = {
 				}
 			}
 
-			console.log('Returning error response:', error instanceof Error ? error.message : 'Unknown error')
+			console.log(
+				'Returning error response:',
+				error instanceof Error ? error.message : 'Unknown error'
+			)
 			return {
 				success: false,
 				error: error instanceof Error ? error.message : 'Unknown error'
@@ -330,82 +333,90 @@ const generatePresentation = async (data: {
 
 	console.log('LLM Response type:', typeof response.content)
 	const responseText = response.content.toString()
-	
+
 	// Log part of the response for debugging
 	console.log('LLM Response (first 500 chars):', responseText.substring(0, 500))
-	console.log('LLM Response (last 500 chars):', responseText.substring(Math.max(0, responseText.length - 500)))
+	console.log(
+		'LLM Response (last 500 chars):',
+		responseText.substring(Math.max(0, responseText.length - 500))
+	)
 
 	try {
 		// More aggressively clean and parse the response
-		let jsonString = responseText;
-		
+		let jsonString = responseText
+
 		// Remove any markdown code block formatting
-		jsonString = jsonString.replace(/```(json)?/g, '').trim();
-		
+		jsonString = jsonString.replace(/```(json)?/g, '').trim()
+
 		// Try to extract just the JSON part (everything between first { and last })
-		const firstBrace = jsonString.indexOf('{');
-		const lastBrace = jsonString.lastIndexOf('}');
-		
+		const firstBrace = jsonString.indexOf('{')
+		const lastBrace = jsonString.lastIndexOf('}')
+
 		if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-			jsonString = jsonString.substring(firstBrace, lastBrace + 1);
+			jsonString = jsonString.substring(firstBrace, lastBrace + 1)
 		}
-		
+
 		// Remove any escape characters that might break JSON
-		jsonString = jsonString.replace(/\\(?=[^"\\])/g, '\\\\');
-		
+		jsonString = jsonString.replace(/\\(?=[^"\\])/g, '\\\\')
+
 		// Fix common JSON formatting issues
 		jsonString = jsonString
 			.replace(/"\s*\n\s*"/g, '", "')
 			.replace(/"\s*\n\s*}/g, '"}')
-			.replace(/}\s*\n\s*"/g, '}, "');
-		
+			.replace(/}\s*\n\s*"/g, '}, "')
+
 		// For debugging
-		console.log('Processed JSON string (first 500 chars):', jsonString.substring(0, 500));
-		
+		console.log(
+			'Processed JSON string (first 500 chars):',
+			jsonString.substring(0, 500)
+		)
+
 		// Try to parse the cleaned JSON
-		const result = JSON.parse(jsonString);
+		const result = JSON.parse(jsonString)
 
 		if (!result.title || !result.content) {
-			throw new Error('Invalid response format from LLM');
+			throw new Error('Invalid response format from LLM')
 		}
 
-		return result;
+		return result
 	} catch (error) {
-		console.error('Failed to parse presentation response:', error);
-		console.error('Raw response text:', responseText);
-		
+		console.error('Failed to parse presentation response:', error)
+		console.error('Raw response text:', responseText)
+
 		// Fallback: Create a simple valid response
 		try {
 			// Extract title and content manually
-			let title = "Generated Presentation";
-			let content = responseText;
-			
+			let title = 'Generated Presentation'
+			let content = responseText
+
 			// Try to extract a title from the response
-			const titleMatch = responseText.match(/title["']?\s*:\s*["']([^"']+)["']/);
+			const titleMatch = responseText.match(/title["']?\s*:\s*["']([^"']+)["']/)
 			if (titleMatch?.[1]) {
-				title = titleMatch[1];
+				title = titleMatch[1]
 			}
-			
+
 			// Try to extract content from the response
-			const contentMatch = responseText.match(/content["']?\s*:\s*["']([^"']+)["']/);
+			const contentMatch = responseText.match(
+				/content["']?\s*:\s*["']([^"']+)["']/
+			)
 			if (contentMatch?.[1]) {
-				content = contentMatch[1];
+				content = contentMatch[1]
 			} else {
 				// If no content found, use the raw response but remove JSON and Markdown formatting
 				content = responseText
 					.replace(/```json/g, '')
 					.replace(/```/g, '')
 					.replace(/{|\}|"title":|"content":/g, '')
-					.trim();
+					.trim()
 			}
-			
+
 			return {
 				title,
 				content
-			};
+			}
 		} catch (fallbackError) {
-			console.error('Even fallback extraction failed:', fallbackError);
-			throw new Error('Failed to generate valid presentation format');
+			console.error('Even fallback extraction failed:', fallbackError)
+			throw new Error('Failed to generate valid presentation format')
 		}
 	}
 }
@@ -504,7 +515,7 @@ const extractInformation = async (chunks: Document[], model: ChatOpenAI) => {
 			content: allContent
 		}
 	])
-	
+
 	// Return the actual content string
 	return response.content.toString()
 }
@@ -594,7 +605,7 @@ async function generateImagePrompts(content: string, model: ChatOpenAI) {
 	try {
 		// Get the response as a string
 		const responseText = response.content.toString()
-		
+
 		// Clean the response more thoroughly
 		const cleanedResponse = responseText
 			.replace(/```json\s*/g, '') // Remove JSON code block markers

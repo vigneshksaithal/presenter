@@ -1,9 +1,13 @@
-import { CHROMA_DB_PATH, OPENAI_API_KEY, OPENAI_MODEL } from '$env/static/private'
-import { OpenAIEmbeddings } from "@langchain/openai"
-import { ChatOpenAI } from "@langchain/openai"
+import {
+	CHROMA_DB_PATH,
+	OPENAI_API_KEY,
+	OPENAI_MODEL
+} from '$env/static/private'
 import { Chroma } from '@langchain/community/vectorstores/chroma'
 import { Document } from '@langchain/core/documents'
 import { ChatPromptTemplate } from '@langchain/core/prompts'
+import { OpenAIEmbeddings } from '@langchain/openai'
+import { ChatOpenAI } from '@langchain/openai'
 
 // Initialize OpenAI model
 const model = new ChatOpenAI({

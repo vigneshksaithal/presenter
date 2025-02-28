@@ -1,16 +1,29 @@
-import pb from '$lib/pocketbase'
 import type { PageLoad } from './$types'
 
-export const load = (async ({ params }) => {
+// Disable server-side rendering for this page
+export const ssr = false
+
+export const load = (async ({ params, fetch }) => {
 	try {
-		const presentation = await pb.collection('presentations').getOne(params.id)
-		return {
-			presentation
+		// Fetch presentation data from API
+		const response = await fetch(`/api/presentation/${params.id}`)
+
+		if (!response.ok) {
+			const errorData = await response.json()
+			console.error('Error fetching presentation:', errorData)
+			return {
+				presentation: null,
+				error: errorData.error || 'Failed to load presentation'
+			}
 		}
+
+		const data = await response.json()
+		return data
 	} catch (error) {
+		console.error('Error in page load:', error)
 		return {
-			status: 404,
-			error: 'Presentation not found'
+			presentation: null,
+			error: error instanceof Error ? error.message : 'Unknown error'
 		}
 	}
 }) satisfies PageLoad
