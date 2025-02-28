@@ -13,7 +13,7 @@ import { Chroma } from '@langchain/community/vectorstores/chroma'
 import type { Document } from '@langchain/core/documents'
 import { ChatDeepSeek } from '@langchain/deepseek'
 import { OpenAIEmbeddings } from '@langchain/openai'
-import { ChatOpenAI } from '@langchain/openai'
+import type { ChatOpenAI } from '@langchain/openai'
 import type { Actions } from '@sveltejs/kit'
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter'
 import type { PageServerLoad } from './$types'
@@ -432,10 +432,10 @@ FORMAT RULES (CRITICAL):
 2. The "content" field must contain actual line breaks, NOT literal "\n"
 
 SLIDE STRUCTURE:
-- Title slide: Use "# Title" on first line, followed by a subtitle on next line
+- Title slide: Use "# Title" on first line, followed by a subtitle (##) on next line
 - Separate slides with three dashes like this "---"
 - Keep slides minimal: 1 concept per slide, 5-7 bullet points maximum
-- Use ## for section headings (not ### or deeper)
+- Use ## for section headings
 - Use blank lines between different elements on a slide
 
 FORMATTING:
