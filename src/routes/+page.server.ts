@@ -323,6 +323,7 @@ const generatePresentation = async (data: {
 	images: Array<{ url: string; description: string }>
 }) => {
 	const model = createModel()
+	// Modify the prompt request with best practices for JSON formatting
 	const response = await model.invoke([
 		{
 			role: 'system',
@@ -330,7 +331,18 @@ const generatePresentation = async (data: {
 		},
 		{
 			role: 'user',
-			content: JSON.stringify(data)
+			content: `
+I need a well-formatted presentation based on the following content and images. 
+Please return a JSON object with two fields: "title" and "content".
+The content should contain actual line breaks (not \\n characters) and proper slide formatting.
+
+Here is the data:
+${JSON.stringify(data, null, 2)}
+
+Start your response with:
+{
+  "title": "
+`
 		}
 	])
 
@@ -375,10 +387,45 @@ const generatePresentation = async (data: {
 		)
 
 		// Try to parse the cleaned JSON
-		const result = JSON.parse(jsonString)
+		let result: { title: string; content: string }
+		try {
+			result = JSON.parse(jsonString)
+		} catch (jsonError) {
+			console.error('Initial JSON parse failed:', jsonError)
+			
+			// Try to repair the JSON using a more aggressive approach
+			jsonString = jsonString
+				// Handle unescaped quotes
+				.replace(/(?<=":[\s]*)"([^"]*)"([^,}]*["'])/g, '"$1\\"$2')
+				// Handle trailing commas
+				.replace(/,\s*}/g, '}')
+				.replace(/,\s*]/g, ']')
+				// Add missing quotes to keys
+				.replace(/([{,]\s*)([a-zA-Z0-9_]+)(\s*:)/g, '$1"$2"$3')
+				
+			console.log('Repaired JSON string:', jsonString.substring(0, 500))
+			result = JSON.parse(jsonString)
+		}
 
 		if (!result.title || !result.content) {
 			throw new Error('Invalid response format from LLM')
+		}
+
+		// Fix formatting issues with the content: 
+		// 1. Replace literal "\n" with actual line breaks
+		// 2. Fix slide separators with proper spacing
+		if (result.content) {
+			// Replace all literal "\n" with actual line breaks
+			result.content = result.content.replace(/\\n/g, '\n')
+			
+			// Ensure proper spacing around slide separators
+			// First normalize slide separators
+			result.content = result.content.replace(/\n---\n/g, '\n\n---\n\n')
+			// Handle cases where there's no newline before/after separator
+			result.content = result.content.replace(/([^\n])---\n/g, '$1\n\n---\n\n')
+			result.content = result.content.replace(/\n---([^\n])/g, '\n\n---\n\n$1')
+			// Handle case of just "---" without any newlines
+			result.content = result.content.replace(/([^\n])---([^\n])/g, '$1\n\n---\n\n$2')
 		}
 
 		return result
@@ -413,6 +460,13 @@ const generatePresentation = async (data: {
 					.trim()
 			}
 
+			// Apply the same formatting fixes to the fallback content
+			content = content.replace(/\\n/g, '\n')
+			content = content.replace(/\n---\n/g, '\n\n---\n\n')
+			content = content.replace(/([^\n])---\n/g, '$1\n\n---\n\n')
+			content = content.replace(/\n---([^\n])/g, '\n\n---\n\n$1')
+			content = content.replace(/([^\n])---([^\n])/g, '$1\n\n---\n\n$2')
+
 			return {
 				title,
 				content
@@ -427,62 +481,87 @@ const generatePresentation = async (data: {
 const PRESENTATION_PROMPT = `
 You are an expert presentation designer specializing in reveal.js markdown presentations.
 
-# TASK
+<task>
+
 Create a visually appealing, professional presentation based on the provided content and images.
 
-# OUTPUT FORMAT
+</task>
+
+<output-format>
+
 Your response must be valid JSON with exactly these fields:
 {
   "title": "Presentation Title Here",
   "content": "markdown content here with proper line breaks"
 }
 
-# SLIDE STRUCTURE
-- Separate slides with exactly three dashes on their own line: "---"
-- Use actual blank line between slides
+IMPORTANT: The 'content' field should include actual line breaks, not \\n characters. 
+- Use actual newlines in the string for line breaks, not \\n escape sequences
+- Each slide should be separated by "---" with blank lines before and after
+- Your response will be parsed as JSON, so the content field should be properly escaped
+
+</output-format>
+
+<slide-structure>
+
+- Separate slides with exactly three dashes on new line: "---"
+- Use actual blank lines before and after "---" slide separators
 - Keep text concise: 1-2 paragraphs or 5-7 bullet points maximum per slide
 - Include links where relevant using markdown format: [link text](url)
 - First slide should use the title from JSON response
 
+</slide-structure>
+
 # EXAMPLES
 
-Example input:
+<example-input>
+
 {
   "content": "Information about digital transformation",
   "images": [{"url": "https://example.com/image.jpg", "description": "Digital transformation diagram"}]
 }
 
-Example output:
+</example-input>
+
+<example-output>
+
 {
   "title": "Digital Transformation",
-  "content": "## Digital Transformation: Reshaping Business Today
-  ## Title
-  Key drivers of change include [cloud computing](https://example.com/cloud) and AI adoption.![Digital transformation](https://example.com/image.jpg)
-  
-  ---
-  
-  ## Title
-  * Data-driven decision making 
-  * Customer experience focus
-  * Agile methodologies
-  
-  ---
+  "content": "# Digital Transformation: Reshaping Business Today
 
-  ## Title
-  * Data-driven decision making 
-  * Customer experience focus
-  * Agile methodologies"
+## Title
+Key drivers of change include [cloud computing](https://example.com/cloud) and AI adoption.
+![Digital transformation](https://example.com/image.jpg)
+
+---
+
+## Title
+* Data-driven decision making 
+* Customer experience focus
+* Agile methodologies
+![Digital transformation](https://example.com/image.jpg)
+
+---
+
+## Title
+* Data-driven decision making 
+* Customer experience focus
+* Agile methodologies"
 }
 
-# REQUIREMENTS
+</example-output>
+
+<rules>
+
 - Incorporate provided images appropriately using markdown image syntax: ![Alt text](image_url)
 - Add captions below images when description is available: *Caption: description*
 - Use bullet points (*) for lists
 - Use blank lines between different elements
 - Make the content flow logically from introduction to conclusion
-- DO NOT use literal \\n, \n - use actual line breaks in the JSON string
 - Include speaker notes where helpful using format: Note: note text
-- Don't use "\n", "//n" or any other line break characters in the output. Use actual line breaks.
+- VERY IMPORTANT: Do not use \\n characters in your content. Use actual line breaks instead.
+
+</rules>
 `
 
 const processPDF = async (pdfFile: File, presentationId: string) => {
@@ -543,7 +622,6 @@ const SYSTEM_PROMPT = `
     5. Don't add any extra information.
     6. All information should be useful.
     7. Don't repeat any information.
-	8. Don't add "\n" (backslash n) in the output. Instead use "---" for new slides. And use blank lines between different elements on a slide.
 
     Example for outputs:
     "# Heading 1
