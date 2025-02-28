@@ -89,6 +89,14 @@ function handleGenerate({ formElement }: { formElement: HTMLFormElement }) {
 	}) => {
 		isSubmitting = false
 
+		// Fix for production issue: checking if we have a presentationId in the data
+		// regardless of result.type since the operation is actually succeeding
+		if (result.data?.presentationId) {
+			generatedPresentationId = result.data.presentationId
+			showSuccessModal = true
+			return
+		}
+		
 		if (result.type === 'success') {
 			const data = result.data
 			if (data && data.success === true) {
@@ -98,7 +106,15 @@ function handleGenerate({ formElement }: { formElement: HTMLFormElement }) {
 				error = data?.error || 'Failed to generate presentation'
 			}
 		} else {
-			error = 'Failed to process request'
+			// Check if data exists and has presentationId before showing error
+			// This handles case where type isn't 'success' but operation succeeded
+			if (result.data?.presentationId) {
+				generatedPresentationId = result.data.presentationId
+				showSuccessModal = true
+			} else {
+				error = result.data?.error || 'Failed to process request'
+				console.log('Form submission result:', result) // Log the result for debugging
+			}
 		}
 	}
 }
