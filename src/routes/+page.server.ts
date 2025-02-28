@@ -1,5 +1,7 @@
 import {
 	CHROMA_DB_PATH,
+	DEEPSEEK_API_KEY,
+	DEEPSEEK_MODEL,
 	FAL_AI_API_KEY,
 	OPENAI_API_KEY,
 	OPENAI_MODEL
@@ -9,6 +11,7 @@ import { fal } from '@fal-ai/client'
 import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf'
 import { Chroma } from '@langchain/community/vectorstores/chroma'
 import type { Document } from '@langchain/core/documents'
+import { ChatDeepSeek } from '@langchain/deepseek'
 import { OpenAIEmbeddings } from '@langchain/openai'
 import { ChatOpenAI } from '@langchain/openai'
 import type { Actions } from '@sveltejs/kit'
@@ -287,9 +290,9 @@ const scrapeUrls = async (urls: string[], fetch: typeof globalThis.fetch) => {
 }
 
 const generateSummary = async (content: string) => {
-	const llm = new ChatOpenAI({
-		apiKey: OPENAI_API_KEY,
-		model: 'gpt-4o-mini'
+	const llm = new ChatDeepSeek({
+		apiKey: DEEPSEEK_API_KEY,
+		model: DEEPSEEK_MODEL
 	})
 
 	const inputText = `
@@ -487,9 +490,9 @@ const processPDF = async (pdfFile: File, presentationId: string) => {
 }
 
 const createModel = () => {
-	return new ChatOpenAI({
-		apiKey: OPENAI_API_KEY,
-		model: OPENAI_MODEL
+	return new ChatDeepSeek({
+		apiKey: DEEPSEEK_API_KEY,
+		model: DEEPSEEK_MODEL
 	})
 }
 
@@ -504,7 +507,7 @@ const splitDocuments = async (docs: Document[]) => {
 	return splitter.splitDocuments(docs)
 }
 
-const extractInformation = async (chunks: Document[], model: ChatOpenAI) => {
+const extractInformation = async (chunks: Document[], model: ChatDeepSeek | ChatOpenAI) => {
 	const allContent = chunks.map((chunk) => chunk.pageContent).join(' ')
 	const response = await model.invoke([
 		{

@@ -1,8 +1,7 @@
-import { OPENAI_API_KEY, OPENAI_MODEL } from '$env/static/private'
-import { CHROMA_DB_PATH } from '$env/static/private'
+import { CHROMA_DB_PATH, DEEPSEEK_API_KEY, DEEPSEEK_MODEL, OPENAI_API_KEY } from '$env/static/private'
 import { ChatPromptTemplate } from '@langchain/core/prompts'
+import { ChatDeepSeek } from '@langchain/deepseek'
 import { OpenAIEmbeddings } from '@langchain/openai'
-import { ChatOpenAI } from '@langchain/openai'
 import { error, json } from '@sveltejs/kit'
 import { ChromaClient } from 'chromadb'
 import type { RequestHandler } from './$types'
@@ -50,9 +49,9 @@ export const POST: RequestHandler = async ({ request }) => {
 		})
 
 		// Initialize the model
-		const model = new ChatOpenAI({
-			apiKey: OPENAI_API_KEY,
-			model: OPENAI_MODEL
+		const model = new ChatDeepSeek({
+			apiKey: DEEPSEEK_API_KEY,
+			model: DEEPSEEK_MODEL
 		})
 
 		// Create prompt template
