@@ -78,8 +78,8 @@ const generateSpeech = async (text: string): Promise<HTMLAudioElement> => {
 // Function to play audio and wait for completion
 const playAudio = async (audio: HTMLAudioElement): Promise<void> => {
 	return new Promise((resolve, reject) => {
-		audio.onended = () => resolve();
-		audio.onerror = (e) => reject(e);
+		audio.onended = () => resolve()
+		audio.onerror = (e) => reject(e)
 		audio.play().catch(reject)
 	})
 }
@@ -362,6 +362,9 @@ onMount(() => {
 		{:else if !data.presentation}
 			<section>
 				<h1>Presentation not found</h1>
+				{#if data.error}
+					<p class="error-message">{data.error}</p>
+				{/if}
 			</section>
 		{/if}
 	</div>

@@ -1,8 +1,8 @@
 import { CHROMA_DB_PATH, OPENAI_API_KEY } from '$env/static/private'
 import pb from '$lib/pocketbase'
-import { OpenAIEmbeddings } from "@langchain/openai"
+import { OpenAIEmbeddings } from '@langchain/openai'
+import { json } from '@sveltejs/kit'
 import { ChromaClient } from 'chromadb'
-import type { PageServerLoad } from './$types'
 
 const embeddings = new OpenAIEmbeddings({
 	apiKey: OPENAI_API_KEY,
@@ -13,7 +13,7 @@ const chroma = new ChromaClient({
 	path: CHROMA_DB_PATH
 })
 
-export const load = (async ({ params }) => {
+export async function GET({ params }) {
 	try {
 		const presentation = await pb.collection('presentations').getOne(params.id)
 
@@ -24,9 +24,8 @@ export const load = (async ({ params }) => {
 					await chroma.getCollection({
 						name: `presentation_${params.id}`,
 						embeddingFunction: {
-							// Implementing required interface for embeddingFunction
 							async generate(texts: string[]): Promise<number[][]> {
-								return await embeddings.embedDocuments(texts);
+								return await embeddings.embedDocuments(texts)
 							}
 						}
 					})
@@ -36,9 +35,8 @@ export const load = (async ({ params }) => {
 						name: `presentation_${params.id}`,
 						metadata: { 'hnsw:space': 'cosine' },
 						embeddingFunction: {
-							// Implementing required interface for embeddingFunction
 							async generate(texts: string[]): Promise<number[][]> {
-								return await embeddings.embedDocuments(texts);
+								return await embeddings.embedDocuments(texts)
 							}
 						}
 					})
@@ -47,22 +45,26 @@ export const load = (async ({ params }) => {
 					const embeddingsArray = await embeddings.embedDocuments(chunks)
 
 					await collection.add({
-						ids: chunks.map((_, i: number) => `chunk_${i}`),
+						ids: chunks.map((chunk: string, i: number) => `chunk_${i}`),
 						embeddings: embeddingsArray,
 						documents: chunks
 					})
 				}
 			} catch (err) {
 				console.error('Error setting up knowledge base:', err)
+				// Continue even if ChromaDB setup fails
 			}
 		}
 
-		return { presentation }
+		return json({ presentation })
 	} catch (err) {
 		console.error('Error loading presentation:', err)
-		return {
-			status: 404,
-			error: 'Presentation not found'
-		}
+		return json(
+			{
+				status: 404,
+				error: 'Presentation not found'
+			},
+			{ status: 404 }
+		)
 	}
-}) satisfies PageServerLoad
+}
