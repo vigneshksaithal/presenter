@@ -78,8 +78,8 @@ const generateSpeech = async (text: string): Promise<HTMLAudioElement> => {
 // Function to play audio and wait for completion
 const playAudio = async (audio: HTMLAudioElement): Promise<void> => {
 	return new Promise((resolve, reject) => {
-		audio.onended = resolve
-		audio.onerror = reject
+		audio.onended = () => resolve();
+		audio.onerror = (e) => reject(e);
 		audio.play().catch(reject)
 	})
 }

@@ -76,19 +76,19 @@ onMount(() => {
 	}
 })
 
-function handleGenerate(form: HTMLFormElement) {
+function handleGenerate({ formElement }: { formElement: HTMLFormElement }) {
 	error = ''
 	isSubmitting = true
-	return async ({ result }: { result: any }) => {
+	return async ({ result }: { result: { type: string; data?: { success?: boolean; presentationId?: string; error?: string } } }) => {
 		isSubmitting = false
 		
 		if (result.type === 'success') {
 			const data = result.data
 			if (data && data.success === true) {
-				generatedPresentationId = data.presentationId
+				generatedPresentationId = data.presentationId || '';
 				showSuccessModal = true
 			} else {
-				error = data.error || 'Failed to generate presentation'
+				error = data?.error || 'Failed to generate presentation'
 			}
 		} else {
 			error = 'Failed to process request'

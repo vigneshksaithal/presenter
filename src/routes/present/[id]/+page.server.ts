@@ -22,20 +22,32 @@ export const load = (async ({ params }) => {
 				// Try to get existing collection first
 				try {
 					await chroma.getCollection({
-						name: `presentation_${params.id}`
+						name: `presentation_${params.id}`,
+						embeddingFunction: {
+							// Implementing required interface for embeddingFunction
+							async generate(texts: string[]): Promise<number[][]> {
+								return await embeddings.embedDocuments(texts);
+							}
+						}
 					})
 				} catch {
 					// Create new collection if it doesn't exist
 					const collection = await chroma.createCollection({
 						name: `presentation_${params.id}`,
-						metadata: { 'hnsw:space': 'cosine' }
+						metadata: { 'hnsw:space': 'cosine' },
+						embeddingFunction: {
+							// Implementing required interface for embeddingFunction
+							async generate(texts: string[]): Promise<number[][]> {
+								return await embeddings.embedDocuments(texts);
+							}
+						}
 					})
 
 					const chunks = presentation.content.split('\n\n').filter(Boolean)
 					const embeddingsArray = await embeddings.embedDocuments(chunks)
 
 					await collection.add({
-						ids: chunks.map((_, i) => `chunk_${i}`),
+						ids: chunks.map((_, i: number) => `chunk_${i}`),
 						embeddings: embeddingsArray,
 						documents: chunks
 					})
