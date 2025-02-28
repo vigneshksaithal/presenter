@@ -439,6 +439,7 @@ Your response must be valid JSON with exactly these fields:
 
 # SLIDE STRUCTURE
 - Separate slides with exactly three dashes on their own line: "---"
+- Use actual blank line between slides
 - Keep text concise: 1-2 paragraphs or 5-7 bullet points maximum per slide
 - Include links where relevant using markdown format: [link text](url)
 - First slide should use the title from JSON response
@@ -454,7 +455,23 @@ Example input:
 Example output:
 {
   "title": "Digital Transformation",
-  "content": "## Slide 1\nDigital Transformation: Reshaping Business Today\n\n---\n## Slide 2\nKey drivers of change include [cloud computing](https://example.com/cloud) and AI adoption.\n\n![Digital transformation](https://example.com/image.jpg)\n\n---\n## Slide 3\n* Data-driven decision making\n* Customer experience focus\n* Agile methodologies"
+  "content": "## Digital Transformation: Reshaping Business Today
+  ## Title
+  Key drivers of change include [cloud computing](https://example.com/cloud) and AI adoption.![Digital transformation](https://example.com/image.jpg)
+  
+  ---
+  
+  ## Title
+  * Data-driven decision making 
+  * Customer experience focus
+  * Agile methodologies
+  
+  ---
+
+  ## Title
+  * Data-driven decision making 
+  * Customer experience focus
+  * Agile methodologies"
 }
 
 # REQUIREMENTS
@@ -463,8 +480,9 @@ Example output:
 - Use bullet points (*) for lists
 - Use blank lines between different elements
 - Make the content flow logically from introduction to conclusion
-- DO NOT use literal \\n - use actual line breaks in the JSON string
+- DO NOT use literal \\n, \n - use actual line breaks in the JSON string
 - Include speaker notes where helpful using format: Note: note text
+- Don't use "\n", "//n" or any other line break characters in the output. Use actual line breaks.
 `
 
 const processPDF = async (pdfFile: File, presentationId: string) => {
