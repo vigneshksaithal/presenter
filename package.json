@@ -33,6 +33,7 @@
 		"@fal-ai/client": "^1.2.3",
 		"@langchain/community": "^0.3.33",
 		"@langchain/core": "^0.3.41",
+		"@langchain/deepseek": "^0.0.1",
 		"@langchain/openai": "^0.4.4",
 		"@types/reveal.js": "^5.0.5",
 		"cheerio": "^1.0.0",

@@ -1,18 +1,19 @@
 import {
 	CHROMA_DB_PATH,
-	OPENAI_API_KEY,
-	OPENAI_MODEL
+	DEEPSEEK_API_KEY,
+	DEEPSEEK_MODEL,
+	OPENAI_API_KEY
 } from '$env/static/private'
 import { Chroma } from '@langchain/community/vectorstores/chroma'
 import { Document } from '@langchain/core/documents'
 import { ChatPromptTemplate } from '@langchain/core/prompts'
+import { ChatDeepSeek } from '@langchain/deepseek'
 import { OpenAIEmbeddings } from '@langchain/openai'
-import { ChatOpenAI } from '@langchain/openai'
 
-// Initialize OpenAI model
-const model = new ChatOpenAI({
-	apiKey: OPENAI_API_KEY,
-	model: OPENAI_MODEL,
+// Initialize DeepSeek model
+const model = new ChatDeepSeek({
+	apiKey: DEEPSEEK_API_KEY,
+	model: DEEPSEEK_MODEL,
 	temperature: 0.7,
 	maxTokens: 4096
 })

@@ -1,5 +1,7 @@
 import {
 	CHROMA_DB_PATH,
+	DEEPSEEK_API_KEY,
+	DEEPSEEK_MODEL,
 	FAL_AI_API_KEY,
 	OPENAI_API_KEY,
 	OPENAI_MODEL
@@ -9,8 +11,9 @@ import { fal } from '@fal-ai/client'
 import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf'
 import { Chroma } from '@langchain/community/vectorstores/chroma'
 import type { Document } from '@langchain/core/documents'
+import { ChatDeepSeek } from '@langchain/deepseek'
 import { OpenAIEmbeddings } from '@langchain/openai'
-import { ChatOpenAI } from '@langchain/openai'
+import type { ChatOpenAI } from '@langchain/openai'
 import type { Actions } from '@sveltejs/kit'
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter'
 import type { PageServerLoad } from './$types'
@@ -287,9 +290,9 @@ const scrapeUrls = async (urls: string[], fetch: typeof globalThis.fetch) => {
 }
 
 const generateSummary = async (content: string) => {
-	const llm = new ChatOpenAI({
-		apiKey: OPENAI_API_KEY,
-		model: 'gpt-4o-mini'
+	const llm = new ChatDeepSeek({
+		apiKey: DEEPSEEK_API_KEY,
+		model: DEEPSEEK_MODEL
 	})
 
 	const inputText = `
@@ -422,57 +425,46 @@ const generatePresentation = async (data: {
 }
 
 const PRESENTATION_PROMPT = `
-You are an expert presentation designer specializing in reveal.js markdown presentations in Markdown format. Create a visually appealing, professional presentation.
+You are an expert presentation designer specializing in reveal.js markdown presentations.
 
-FORMAT RULES (CRITICAL):
-1. Your response must be EXACTLY in this JSON format: {"title": "Title Here", "content": "markdown content here"}
-2. The "content" field must contain actual line breaks, NOT literal "\n"
+# TASK
+Create a visually appealing, professional presentation based on the provided content and images.
 
-SLIDE STRUCTURE:
-- Title slide: Use "# Title" on first line, followed by a subtitle on next line
-- Separate slides with three dashes like this "---"
-- Keep slides minimal: 1 concept per slide, 5-7 bullet points maximum
-- Use ## for section headings (not ### or deeper)
-- Use blank lines between different elements on a slide
-
-FORMATTING:
-- Bullet lists: Use "*" for main points and " - " (two spaces) for sub-points
-- Numbered lists: Use "1. ", "2. ", etc.
-- Images: "![Description](image_url)" followed by "*Caption: text*" on next line
-- Speaker notes: Start with "Note: " after slide content
-
-EXAMPLE:
+# OUTPUT FORMAT
+Your response must be valid JSON with exactly these fields:
 {
-  "title": "Effective Communication",
-  "content": "
-  	# Effective Communication
-
-	Building stronger teams through clarity
-
-	---
-
-	## Key Principles
-
-	* Clear messaging
-	* Active listening
-	* Timely feedback
-	* Appropriate channels
-	* Empathetic approach
-
-	![Communication flow](https://i.ibb.co/0r00000/image.png)
-	*Caption: Effective communication flow in organizations*
-
-	Note: Emphasize that these principles build on each other
-
-	---
-
-	## Implementation Steps
-	1. Assess current patterns
-	2. Identify gaps
-	3. Develop strategies
-	4. Train team members
-	5. Measure improvements"
+  "title": "Presentation Title Here",
+  "content": "markdown content here with proper line breaks"
 }
+
+# SLIDE STRUCTURE
+- Separate slides with exactly three dashes on their own line: "---"
+- Keep text concise: 1-2 paragraphs or 5-7 bullet points maximum per slide
+- Include links where relevant using markdown format: [link text](url)
+- First slide should use the title from JSON response
+
+# EXAMPLES
+
+Example input:
+{
+  "content": "Information about digital transformation",
+  "images": [{"url": "https://example.com/image.jpg", "description": "Digital transformation diagram"}]
+}
+
+Example output:
+{
+  "title": "Digital Transformation",
+  "content": "## Slide 1\nDigital Transformation: Reshaping Business Today\n\n---\n## Slide 2\nKey drivers of change include [cloud computing](https://example.com/cloud) and AI adoption.\n\n![Digital transformation](https://example.com/image.jpg)\n\n---\n## Slide 3\n* Data-driven decision making\n* Customer experience focus\n* Agile methodologies"
+}
+
+# REQUIREMENTS
+- Incorporate provided images appropriately using markdown image syntax: ![Alt text](image_url)
+- Add captions below images when description is available: *Caption: description*
+- Use bullet points (*) for lists
+- Use blank lines between different elements
+- Make the content flow logically from introduction to conclusion
+- DO NOT use literal \\n - use actual line breaks in the JSON string
+- Include speaker notes where helpful using format: Note: note text
 `
 
 const processPDF = async (pdfFile: File, presentationId: string) => {
@@ -487,9 +479,9 @@ const processPDF = async (pdfFile: File, presentationId: string) => {
 }
 
 const createModel = () => {
-	return new ChatOpenAI({
-		apiKey: OPENAI_API_KEY,
-		model: OPENAI_MODEL
+	return new ChatDeepSeek({
+		apiKey: DEEPSEEK_API_KEY,
+		model: DEEPSEEK_MODEL
 	})
 }
 
@@ -504,7 +496,7 @@ const splitDocuments = async (docs: Document[]) => {
 	return splitter.splitDocuments(docs)
 }
 
-const extractInformation = async (chunks: Document[], model: ChatOpenAI) => {
+const extractInformation = async (chunks: Document[], model: ChatDeepSeek | ChatOpenAI) => {
 	const allContent = chunks.map((chunk) => chunk.pageContent).join(' ')
 	const response = await model.invoke([
 		{
@@ -573,23 +565,38 @@ const createPresentationInPocketbase = async (title = '') => {
 }
 
 const IMAGE_PROMPT_SYSTEM = `
-You are an expert at generating image prompts for presentations. For the given content:
-1. Generate 3-5 image prompts that would enhance the presentation
-2. Each prompt should be detailed and specific for high-quality image generation
-3. Include a short description of what the image represents and how it relates to the content
-4. Return ONLY a valid JSON array with 'prompt' and 'description' fields
-5. DO NOT include any text before or after the JSON array
-6. DO NOT include any markdown, code blocks, or formatting
-7. The response must be EXACTLY in this format, no extra characters:
-[{"prompt":"your prompt here","description":"your description here"}]
+# TASK
+Generate image prompts for a professional presentation based on provided content.
 
-Example output (copy this format exactly):
+# OUTPUT FORMAT
+Return EXACTLY a valid JSON array with objects containing these fields:
 [
   {
-    "prompt": "A detailed 3D render of a modern laptop with holographic data visualization floating above it, blue glowing elements, high-tech aesthetic",
-    "description": "Represents digital transformation and modern technology adoption"
+    "prompt": "Detailed image generation prompt",
+    "description": "Brief description of image purpose"
   }
-]`
+]
+
+# REQUIREMENTS
+- Generate 3-5 image prompts that enhance the presentation
+- Each prompt must be detailed and specific (40-60 words)
+- Include visual style, composition, colors, and key elements
+- Description should explain how image relates to content (10-20 words)
+- DO NOT include any text before or after the JSON array
+- NO code blocks, markdown formatting, or comments
+
+# EXAMPLE OUTPUT
+[
+  {
+    "prompt": "A detailed 3D render of a modern laptop with holographic data visualization floating above it, blue glowing elements, high-tech aesthetic, clean background, professional lighting",
+    "description": "Represents digital transformation and modern technology adoption"
+  },
+  {
+    "prompt": "Business professionals collaborating in a modern office space, diverse team, viewing analytics dashboard, warm lighting, selective focus, corporate setting",
+    "description": "Illustrates team collaboration and data-driven decision making"
+  }
+]
+`
 
 async function generateImagePrompts(content: string, model: ChatOpenAI) {
 	const response = await model.invoke([
