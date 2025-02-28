@@ -1,7 +1,7 @@
 <script lang="ts">
+import { enhance } from '$app/forms'
 import { onMount } from 'svelte'
 import Navbar from './Navbar.svelte'
-import { enhance } from '$app/forms'
 
 let textareaEl: HTMLTextAreaElement
 let prompt = $state('')
@@ -79,13 +79,20 @@ onMount(() => {
 function handleGenerate({ formElement }: { formElement: HTMLFormElement }) {
 	error = ''
 	isSubmitting = true
-	return async ({ result }: { result: { type: string; data?: { success?: boolean; presentationId?: string; error?: string } } }) => {
+	return async ({
+		result
+	}: {
+		result: {
+			type: string
+			data?: { success?: boolean; presentationId?: string; error?: string }
+		}
+	}) => {
 		isSubmitting = false
-		
+
 		if (result.type === 'success') {
 			const data = result.data
 			if (data && data.success === true) {
-				generatedPresentationId = data.presentationId || '';
+				generatedPresentationId = data.presentationId || ''
 				showSuccessModal = true
 			} else {
 				error = data?.error || 'Failed to generate presentation'

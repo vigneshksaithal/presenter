@@ -1,8 +1,8 @@
 import { OPENAI_API_KEY, OPENAI_MODEL } from '$env/static/private'
 import { CHROMA_DB_PATH } from '$env/static/private'
-import { OpenAIEmbeddings } from "@langchain/openai"
-import { ChatOpenAI } from "@langchain/openai"
 import { ChatPromptTemplate } from '@langchain/core/prompts'
+import { OpenAIEmbeddings } from '@langchain/openai'
+import { ChatOpenAI } from '@langchain/openai'
 import { error, json } from '@sveltejs/kit'
 import { ChromaClient } from 'chromadb'
 import type { RequestHandler } from './$types'
@@ -35,7 +35,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			name: `presentation_${presentationId}`,
 			embeddingFunction: {
 				generate: async (texts: string[]) => {
-					return await embeddings.embedDocuments(texts);
+					return await embeddings.embedDocuments(texts)
 				}
 			}
 		})
