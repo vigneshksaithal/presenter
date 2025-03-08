@@ -6,6 +6,13 @@
           <p>If you are getting errors it means I might have exhausted my LLMs, ElevenLabs API quota. Sorry :/</p>
         </hgroup>
       </li>
+      <li>
+        <button onclick={() => {
+          posthog.capture('my event', { property: 'value' })
+        }}>
+          Posthog
+        </button>
+      </li>
     </ul>
     <!-- <ul>
       <li><a href="/about">About</a></li>
