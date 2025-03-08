@@ -1,3 +1,7 @@
+<script lang="ts">
+  import posthog from 'posthog-js'
+</script>
+
 <nav class="max-w-xl mx-auto px-4">
     <ul>
       <li>
