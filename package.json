@@ -40,7 +40,7 @@
 		"chromadb": "^1.10.5",
 		"chromadb-default-embed": "^2.14.0",
 		"elevenlabs": "^1.56.0",
-		"langchain": "^0.3.20",
+		"langchain": "^0.3.37",
 		"marked": "^15.0.7",
 		"pocketbase": "^0.25.2",
 		"posthog-js": "^1.234.9",
